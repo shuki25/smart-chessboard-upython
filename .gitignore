@@ -1,0 +1,4 @@
+venv/*
+wifi.dat
+webrepl_cfg.py
+esp32-20220618-v1.19.1.bin
