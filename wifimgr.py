@@ -2,12 +2,14 @@ import network
 import socket
 import ure
 import time
+import ujson
 
 ap_ssid = "Petnet Setup"
 ap_password = "petnet123"
 ap_authmode = 3  # WPA2
 
 NETWORK_PROFILES = 'wifi.dat'
+SD_NETWORK_PROFILES = '/sd/wifi.txt'
 
 wlan_ap = network.WLAN(network.AP_IF)
 wlan_sta = network.WLAN(network.STA_IF)
@@ -15,7 +17,7 @@ wlan_sta = network.WLAN(network.STA_IF)
 server_socket = None
 
 
-def get_connection():
+def get_connection(sd_available=False):
     """return a working WLAN(STA_IF) instance or None"""
 
     # First check if there already is any connection:
@@ -30,7 +32,10 @@ def get_connection():
             return wlan_sta
 
         # Read known network profiles from file
-        profiles = read_profiles()
+        if sd_available:
+            profiles = read_profiles_from_sd()
+        else:
+            profiles = read_profiles()
 
         # Search WiFis in range
         wlan_sta.active(True)
@@ -70,6 +75,19 @@ def read_profiles():
         ssid, password = line.strip("\n").split(";")
         profiles[ssid] = password
     return profiles
+
+
+def read_profiles_from_sd():
+    path = SD_NETWORK_PROFILES
+    profiles = {}
+    try:
+        with open(SD_NETWORK_PROFILES) as f:
+            data = ujson.load(f)
+            profiles[data['SSID']] = data['PASSWORD']
+        return profiles
+    except OSError as e:
+        print("exception", str(e))
+        return {}
 
 
 def write_profiles(profiles):
