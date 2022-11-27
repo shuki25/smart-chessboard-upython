@@ -196,7 +196,7 @@ async def event_listener():
     show_setup_message = False
 
     white_clock = ChessClock(i2c, i2c_mux, [0, 2])
-    #black_clock = ChessClock(i2c, i2c_mux, [0, 3])
+    # black_clock = ChessClock(i2c, i2c_mux, [0, 3])
 
     while True:
         if not lock.locked():
@@ -290,7 +290,9 @@ async def event_listener():
                             capture_flag = True
                             print(
                                 "Capture detected: %s"
-                                % chessboard.coord_to_algebraic((board_state_piece_lifted & (board_status ^ INVERSE_MASK)))
+                                % chessboard.coord_to_algebraic(
+                                    (board_state_piece_lifted & (board_status ^ INVERSE_MASK))
+                                )
                             )
                             board_state_capturing_piece = board_state_piece_lifted
                             board_state_captured_piece = board_status
@@ -303,8 +305,10 @@ async def event_listener():
                     print("board status: %s" % board_status)
                     if board_status != prev_board_status and piece_diff == 0:
                         print("Piece moved")
+                        move = chessboard.detect_move_positions(prev_board_status, board_status)
+                        print("%s-%s" % move)
+                        chessboard.update_board_move(move)
                         chessboard.print_board()
-                        print("%s-%s" % chessboard.detect_move_positions(prev_board_status, board_status))
                         prev_board_status = board_status
                         piece_removed = False
                         capture_flag = False
@@ -315,13 +319,12 @@ async def event_listener():
                         position_changed_flag = False
                     elif board_status != prev_board_status and piece_diff == -1 and capture_flag and piece_removed:
                         print("Piece captured")
-                        chessboard.print_board()
-                        print(
-                            "%sx%s"
-                            % chessboard.detect_capture_move_positions(
-                                prev_board_status, board_state_capturing_piece, board_state_captured_piece
-                            )
+                        move = chessboard.detect_capture_move_positions(
+                            prev_board_status, board_state_capturing_piece, board_state_captured_piece
                         )
+                        print("%sx%s" % move)
+                        chessboard.update_board_move(move)
+                        chessboard.print_board()
                         prev_board_status = board_status
                         piece_removed = False
                         capture_flag = False
