@@ -73,7 +73,7 @@ STARTING_POSITION = 0xFFFF00000000FFFF
 
 class Chessboard:
     io_expander = []
-    board = {}
+    board = list(" " * 64)
     board_coords = {}
     board_coords_reverse = {}
     board_status = 0xFFFF00000000FFFF
@@ -130,6 +130,7 @@ class Chessboard:
         fen = fen.split(" ")
         board = fen[0]
         board = board.split("/")
+        self.board = list(" " * 64)
         i = 8
         for rank in board:
             j = 0
@@ -155,7 +156,6 @@ class Chessboard:
                 self.board_coords[file + rank] = (j, IO_EXPANDER_TILE[i])
                 reverse_index = IO_EXPANDER_TILE[i] << IO_EXPANDER_SHIFT[j]
                 self.board_coords_reverse[reverse_index] = file + rank
-                self.board[file + rank] = 0
                 i += 1
                 if i >= 16:
                     i = 0
@@ -188,15 +188,15 @@ class Chessboard:
 
         :return: None
         """
+        i=8
         for rank in PRINT_RANK:
             print("  ---------------------------------")
             print(rank, end=" |")
-            for file in FILE:
-                if self.board[file + rank]:
-                    print(" x |", end="")
-                else:
-                    print("   |", end="")
+            for j, file in enumerate(FILE):
+                square = (i-1)*8+j
+                print(" %s |" % self.board[square], end="")
             print()
+            i -= 1
         print("  ---------------------------------")
         print("  |", end="")
         for file in FILE:
@@ -219,6 +219,22 @@ class Chessboard:
         if current_board is None:
             current_board = self.board_status
         return str(bin(current_board)).count("1")
+
+    def update_board_move(self, move: tuple):
+        """
+        Update the board state with a move
+
+        :param move: Move in long algebraic notation
+
+        :return: None
+        """
+        if not isinstance(move, tuple):
+            raise Exception("move is not a tuple")
+        start = self.algebraic_to_board_index(move[0])
+        end = self.algebraic_to_board_index(move[1])
+        piece = self.board[start]
+        self.board[start] = " "
+        self.board[end] = piece
 
     def detect_move_positions(self, prev_state, new_state):
         """
@@ -289,6 +305,7 @@ class Chessboard:
         self.read_board()
         if self.board_status == STARTING_POSITION:
             print("Board is already in starting position")
+            self.parse_fen(FEN_STARTING_POSITION)
             return True
         else:
             print("Please reset the board to the starting position")
@@ -296,6 +313,7 @@ class Chessboard:
                 self.read_board()
                 if self.board_status == STARTING_POSITION:
                     print("Board is in starting position")
+                    self.parse_fen(FEN_STARTING_POSITION)
                     return True
                 else:
                     await uasyncio.sleep_ms(300)
