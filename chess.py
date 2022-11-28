@@ -54,8 +54,11 @@ The class provides the following methods:
 
 """
 
+import re
+
 RANK = ["1", "2", "3", "4", "5", "6", "7", "8"]
 FILE = ["a", "b", "c", "d", "e", "f", "g", "h"]
+DEBUG = 0
 
 
 def move_notation(
@@ -97,6 +100,36 @@ def move_notation(
     )
 
 
+def validate_notation(chess_move: str) -> bool:
+    """
+    Validate chess move in algebraic notation
+
+    :param chess_move: chess move in algebraic notation
+    :return: True if valid, False otherwise
+    """
+    valid = 1
+    debug("validating notation: {}".format(chess_move), 2)
+    if chess_move in ["O-O", "O-O-O"]:
+        return True
+
+    regex = re.compile(r"([a-h][1-8])([-x]?)([a-h][1-8])(=?[NBRQnbrq])?(e\.p\.)?")
+    match = regex.match(chess_move)
+    if match:
+        debug("match: {}".format(match.groups()), 2)
+        if match.group(1) and not match.group(2) and match.group(3):
+            return True
+        elif match.group(1) and match.group(3) and "=" in chess_move and match.group(4):
+            return True
+        elif match.group(2) == "x" and match.group(5):
+            return True
+        elif not match.group(1) or not match.group(3):
+            return False
+        else:
+            return False
+    else:
+        return False
+
+
 def algebraic_to_board_index(algebraic):
     """
     Translate algebraic notation to a board index
@@ -104,7 +137,18 @@ def algebraic_to_board_index(algebraic):
     :param algebraic: board index
     :return: board index
     """
+    debug("algebraic to board index: {}".format(algebraic), 2)
     return RANK.index(algebraic[1]) * 8 + FILE.index(algebraic[0].lower())
+
+
+def board_index_to_algebraic(index):
+    """
+    Translate board index to algebraic notation
+
+    :param index: board index
+    :return: algebraic notation
+    """
+    return FILE[index % 8] + RANK[index // 8]
 
 
 def make_test_move(board: list, chess_move: str):
@@ -131,8 +175,20 @@ def check_boundary(index: int, rank: int) -> bool:
     :return: True if on the rank, False otherwise
     """
     is_in_bounds = 0 <= index < 64 and index // 8 == rank
-    print("boundary check: index = {}, rank = {}, in bounds = {}".format(index, rank, is_in_bounds))
+    debug("boundary check: index = {}, rank = {}, in bounds = {}".format(index, rank, is_in_bounds), 2)
     return 0 <= index < 64 and index // 8 == rank
+
+
+def debug(message: str, level: int = 1):
+    """
+    debug a debug message
+
+    :param message: message to debug if DEBUG is True
+    :param level: level of debug message
+    :return: None
+    """
+    if DEBUG >= level:
+        print(message)
 
 
 class Chess:
@@ -283,23 +339,148 @@ class Chess:
         """
         return self.board[index].isupper() if color == "w" else self.board[index].islower()
 
-    def make_move(self, move: str):
+    def update_turn(self, move: str):
+        """
+        Update the turn to the next player.
+
+        :return: None
+        """
+        self.turn = "b" if self.turn == "w" else "w"
+
+        if self.turn == "w":
+            self.fullmove += 1
+        if move == "O-O" or move == "O-O-O":
+            self.halfmove += 1
+        else:
+            if move[2] == "x":
+                self.halfmove = 0
+            elif self.board[algebraic_to_board_index(move[3:5])] in "Pp":
+                self.halfmove = 0
+                # update enpassant
+                from_square = algebraic_to_board_index(move[0:2])
+                to_square = algebraic_to_board_index(move[3:5])
+                if abs(from_square - to_square) == 16:
+                    self.enpassant = board_index_to_algebraic(int((from_square + to_square) / 2))
+                else:
+                    self.enpassant = "-"
+            else:
+                self.halfmove += 1
+
+    def is_enpassant(self, move: str):
+        """
+        Return True if the move is an en passant capture, and False otherwise.
+
+        :param move: the move to check
+
+        :return: True if the move is an en passant capture, and False otherwise
+        """
+        if self.enpassant == "-":
+            return False
+
+        index = algebraic_to_board_index(move[:2])
+        enpassant = algebraic_to_board_index(self.enpassant)
+        piece = self.board[index]
+        side = "w" if piece.isupper() else "b"
+
+        if piece not in "Pp":
+            return False
+        if side == "w" and self.board[enpassant - 8] != "p":
+            return False
+        elif side == "b" and self.board[enpassant + 8] != "P":
+            return False
+        return self.enpassant == move[3:5]
+
+    def make_move(self, move: str, side: str = None):
         """
         Make a move on the board, if it is valid
 
         :param move: chess move in algebraic notation
+        :param side: side to move (defaults to self.turn)
         :return: True if move is valid, False otherwise
         """
-        from_square = algebraic_to_board_index(move[:2])
-        to_square = algebraic_to_board_index(move[3:5])
-        if self.check_move(move, side=self.turn):
-            self.board[to_square] = self.board[from_square]
+        if side is None:
+            side = self.turn
+
+        if not validate_notation(move):
+            return False
+
+        debug("move: {}".format(move))
+
+        if not validate_notation(move):
+            return False
+
+        if move not in ["O-O", "O-O-O"]:
+            from_square = algebraic_to_board_index(move[:2])
+            if (self.board[from_square].isupper() and side != "w") or (
+                self.board[from_square].islower() and side != "b"
+            ):
+                return False
+
+        if self.is_enpassant(move):
+            debug("move is enpassant")
+            from_square = algebraic_to_board_index(move[0:2])
+            to_square = algebraic_to_board_index(move[3:5])
             self.board[from_square] = " "
-            self.turn = "b" if self.turn == "w" else "w"
+            self.board[to_square] = "P" if side == "w" else "p"
+            captured_square = (
+                algebraic_to_board_index(self.enpassant) - 8
+                if side == "w"
+                else algebraic_to_board_index(self.enpassant) + 8
+            )
+            self.board[captured_square] = " "
+            self.update_turn(move)
+            debug("enpassant move is complete")
             return True
+
+        if self.check_move(move, side):
+            debug("move is valid")
+            if move != "O-O" and move != "O-O-O":
+                debug("move is not castling")
+                from_square = algebraic_to_board_index(move[:2])
+                to_square = algebraic_to_board_index(move[3:5])
+                self.board[to_square] = self.board[from_square]
+                self.board[from_square] = " "
+                self.update_turn(move)
+                debug("move is complete")
+                return True
+            else:
+                debug("move is castling")
+                if move == "O-O" and side == "w":
+                    self.board[6] = "K"
+                    self.board[5] = "R"
+                    self.board[4] = " "
+                    self.board[7] = " "
+                    self.castling.remove("K")
+                    self.castling.remove("Q")
+                elif move == "O-O" and side == "b":
+                    self.board[62] = "k"
+                    self.board[61] = "r"
+                    self.board[60] = " "
+                    self.board[63] = " "
+                    self.castling.remove("k")
+                    self.castling.remove("q")
+                elif move == "O-O-O" and side == "w":
+                    self.board[2] = "K"
+                    self.board[3] = "R"
+                    self.board[4] = " "
+                    self.board[0] = " "
+                    self.castling.remove("K")
+                    self.castling.remove("Q")
+                elif move == "O-O-O" and side == "b":
+                    self.board[58] = "k"
+                    self.board[59] = "r"
+                    self.board[60] = " "
+                    self.board[56] = " "
+                    self.castling.remove("k")
+                    self.castling.remove("q")
+                self.update_turn(move)
+                debug("castling complete")
+                return True
+        debug("move is invalid, move not made")
+        debug("still {}'s move".format("white" if self.turn == "w" else "black"))
         return False
 
-    def check_move(self, move: str, side: str="w"):
+    def check_move(self, move: str, side: str = "w"):
         """
         Check if a move is valid
 
@@ -314,7 +495,7 @@ class Chess:
         else:
             return self.check_regular_move(move, side)
 
-    def check_castle(self, index: int, side: str="w"):
+    def check_castle(self, index: int, side: str = "w"):
         """
         Check if a castle move is valid
 
@@ -322,41 +503,62 @@ class Chess:
         :param side: side to move
         :return: True if move is valid, False otherwise
         """
-        if self.board[index] != "K" if side == "w" else "k":
-            return False
+
         if side == "w":
+            if self.board.index("K") != 4:
+                return False
             if index == 6:
                 if "K" not in self.castling:
                     return False
                 if self.board[5] != " " or self.board[6] != " ":
                     return False
-                if self.is_attacked(4, "b") or self.is_attacked(5, "b") or self.is_attacked(6, "b"):
+
+                if (
+                    self.is_square_attacked(4, side=side)
+                    or self.is_square_attacked(5, side=side)
+                    or self.is_square_attacked(6, side=side)
+                ):
                     return False
             else:
                 if "Q" not in self.castling:
                     return False
                 if self.board[1] != " " or self.board[2] != " " or self.board[3] != " ":
                     return False
-                if self.is_attacked(2, "b") or self.is_attacked(3, "b") or self.is_attacked(4, "b"):
+                if (
+                    self.is_square_attacked(2, side=side)
+                    or self.is_square_attacked(3, side=side)
+                    or self.is_square_attacked(4, side=side)
+                ):
                     return False
         else:
+            if self.board.index("k") != 60:
+                return False
             if index == 62:
                 if "k" not in self.castling:
                     return False
                 if self.board[61] != " " or self.board[62] != " ":
                     return False
-                if self.is_attacked(60, "w") or self.is_attacked(61, "w") or self.is_attacked(62, "w"):
+                if (
+                    self.is_square_attacked(60, side=side)
+                    or self.is_square_attacked(61, side=side)
+                    or self.is_square_attacked(62, side=side)
+                ):
                     return False
             else:
                 if "q" not in self.castling:
                     return False
                 if self.board[57] != " " or self.board[58] != " " or self.board[59] != " ":
                     return False
-                if self.is_attacked(58, "w") or self.is_attacked(59, "w") or self.is_attacked(60, "w"):
+                if (
+                    self.is_square_attacked(58, side=side)
+                    or self.is_square_attacked(59, side=side)
+                    or self.is_square_attacked(60, side=side)
+                ):
                     return False
+
         return True
 
-    def check_regular_move(self, move: str, side: str="w"):
+    def check_regular_move(self, move: str, side: str = "w"):
         """
         Check if a regular move is valid
 
@@ -443,49 +645,50 @@ class Chess:
 
         :return: a list of legal pawn moves for the pawn at the given index
         """
+        debug("Generating pawn moves for index {}".format(index))
         moves = []
         if self.board[index].isupper():
             if self.board[index + 8] == " ":
                 moves.append(move_notation(index, index + 8))
                 if index < 16 and self.board[index + 16] == " ":
                     moves.append(move_notation(index, index + 16))
-            if self.board[index + 7].islower():
-                moves.append(move_notation(index, index + 7, capture=True))
-            if self.board[index + 9].islower():
+            if check_boundary(index + 9, (index // 8 + 1)) and self.board[index + 9].islower():
                 moves.append(move_notation(index, index + 9, capture=True))
+            if check_boundary(index + 7, (index // 8 + 1)) and self.board[index + 7].islower():
+                moves.append(move_notation(index, index + 7, capture=True))
             if (
                 index % 8 > 0
-                and self.board[index + 7] == "p"
+                and self.board[index - 1] == "p"
                 and self.enpassant == chr(ord("a") + (index % 8) - 1) + "6"
             ):
                 moves.append(move_notation(index, index + 7, capture=True, enpassant=True))
             if (
                 index % 8 < 7
-                and self.board[index + 9] == "p"
+                and self.board[index + 1] == "p"
                 and self.enpassant == chr(ord("a") + (index % 8) + 1) + "6"
             ):
-                moves.append(move_notation(index, index + 9))
+                moves.append(move_notation(index, index + 9, capture=True, enpassant=True))
         else:
             if self.board[index - 8] == " ":
                 moves.append(move_notation(index, index - 8))
                 if index > 47 and self.board[index - 16] == " ":
                     moves.append(move_notation(index, index - 16))
-            if self.board[index - 7].isupper():
-                moves.append(move_notation(index, index - 7))
-            if self.board[index - 9].isupper():
-                moves.append(move_notation(index, index - 9))
+            if check_boundary(index - 7, (index // 8) - 1) and self.board[index - 7].isupper():
+                moves.append(move_notation(index, index - 7, capture=True))
+            if check_boundary(index - 9, (index // 8) - 1) and self.board[index - 9].isupper():
+                moves.append(move_notation(index, index - 9, capture=True))
             if (
                 index % 8 > 0
-                and self.board[index - 9] == "P"
+                and self.board[index - 1] == "P"
                 and self.enpassant == chr(ord("a") + (index % 8) - 1) + "3"
             ):
-                moves.append(move_notation(index, index - 9))
+                moves.append(move_notation(index, index - 9, capture=True, enpassant=True))
             if (
                 index % 8 < 7
-                and self.board[index - 7] == "P"
+                and self.board[index + 1] == "P"
                 and self.enpassant == chr(ord("a") + (index % 8) + 1) + "3"
             ):
-                moves.append(move_notation(index, index - 7))
+                moves.append(move_notation(index, index - 7, capture=True, enpassant=True))
         return moves
 
     def generate_knight_moves(self, index: int):
@@ -708,56 +911,75 @@ class Chess:
         if index % 8 != 0 and index > 7 and (self.board[index - 9] == " " or self.is_enemy(index - 9, side)):
             moves.append(move_notation(index, index - 9, capture=self.is_enemy(index - 9, side)))
 
+        # king side castle
+        if side == "w":
+            if self.check_castle(6, side):
+                moves.append("O-O")
+        else:
+            if self.check_castle(62, side):
+                moves.append("O-O")
+
+        # queen side castle
+        if side == "w":
+            if self.check_castle(2, side):
+                moves.append("O-O-O")
+        else:
+            if self.check_castle(58, side):
+                moves.append("O-O-O")
+
         return moves
 
-    def is_square_attacked(self, index: int, board: list = None):
+    def is_square_attacked(self, index: int, board: list = None, side: str = None):
         """
         Return True if the given square is under attack by the enemy, False otherwise.
 
         :param index: the index of the square to check
         :param board: the board to check for attacks
+        :param side: the side to check for attacks
 
         :return: True if the given square is under attack by the enemy, False otherwise
         """
-        side = "w" if board[index].isupper() else "b"
         if board is None:
             board = self.board
 
-        print("-----------------")
-        print("Checking if square {} is attacked".format(index))
-        print("piece color:  {}".format(side))
+        if side is None:
+            side = "w" if board[index].isupper() else "b"
 
-        print(self.get_board(board))
+        debug("-----------------")
+        debug("Checking if square {} is attacked".format(index))
+        debug("friendly side:  {}".format(side))
+
+        debug(self.get_board(board), 2)
         # check for pawns
-        print("Checking for pawns attacks")
+        debug("Checking for pawns attacks", 2)
         if side == "w":
             if index % 8 != 0 and index > 7 and board[index - 9] == "p":
-                print("pawn attack: {}".format(index - 9))
+                debug("black pawn attack: {}".format(index - 9))
                 return True
             if (index + 1) % 8 != 0 and index > 7 and board[index - 7] == "p":
-                print("pawn attack: {}".format(index - 7))
+                debug("black pawn attack: {}".format(index - 7))
                 return True
         else:
             if index % 8 != 0 and index < 56 and board[index + 7] == "P":
-                print("pawn attack: {}".format(index + 7))
+                debug("white pawn attack: {}".format(index + 7))
                 return True
             if (index + 1) % 8 != 0 and index < 56 and board[index + 9] == "P":
-                print("pawn attack: {}".format(index + 9))
+                debug("white pawn attack: {}".format(index + 9))
                 return True
 
         # check for knights
-        print("checking for knights attacks")
-        rank_orign = (index // 8)
+        debug("checking for knights attacks", 2)
+        rank_orign = index // 8
         rank_idx = [-2, -2, -1, -1, 1, 1, 2, 2]
         for j, i in enumerate([-17, -15, -10, -6, 6, 10, 15, 17]):
             rank = rank_orign + rank_idx[j]
             if check_boundary(index + i, rank):
                 if 0 <= index + i < 64 and board[index + i] == ("n" if side == "w" else "N"):
-                    print("knight attack: {}".format(index + i))
+                    debug("knight attack: {}".format(index + i))
                     return True
 
         # check for bishops and queens
-        print("checking for bishops and queens attacks")
+        debug("checking for bishops and queens attacks", 2)
         for i in [-9, -7, 7, 9]:
             rank = index // 8
             for j in range(1, 8):
@@ -766,18 +988,20 @@ class Chess:
                 else:
                     rank += 1
                 if 0 <= index + i * j < 64 and check_boundary(index + i * j, rank):
-                    print("checking bishop/queen attack: {}".format(index + i * j))
-                    if board[index + i * j] == ("b" if side == "w" else "B") or board[index + i * j] == ("q" if side == "w" else "Q"):
-                        print("bishop/queen attack: {}".format(index + i * j))
+                    debug("checking bishop/queen attack: {}".format(index + i * j), 2)
+                    if board[index + i * j] == ("b" if side == "w" else "B") or board[index + i * j] == (
+                        "q" if side == "w" else "Q"
+                    ):
+                        debug("bishop/queen attack: {}".format(index + i * j))
                         return True
                     if board[index + i * j] != " ":
-                        print("bishop/queen attack blocked: {}".format(index + i * j))
+                        debug("bishop/queen attack blocked: {}".format(index + i * j))
                         break
                 else:
                     break
 
         # check for rooks and queens
-        print("checking for rooks and queens attacks")
+        debug("checking for rooks and queens attacks", 2)
         for i in [-8, -1, 1, 8]:
             rank = index // 8
             for j in range(1, 8):
@@ -786,24 +1010,26 @@ class Chess:
                 elif i == 8:
                     rank += 1
                 if 0 <= index + i * j < 64 and check_boundary(index + i * j, rank):
-                    print("checking rook/queen attack: {}".format(index + i * j))
-                    if board[index + i * j] == ("r" if side == "w" else "R") or board[index + i * j] == ("q" if side == "w" else "Q"):
-                        print("rook/queen attack: {}".format(index + i * j))
+                    debug("checking rook/queen attack: {}".format(index + i * j), 2)
+                    if board[index + i * j] == ("r" if side == "w" else "R") or board[index + i * j] == (
+                        "q" if side == "w" else "Q"
+                    ):
+                        debug("rook/queen attack: {}".format(index + i * j))
                         return True
                     if board[index + i * j] != " ":
-                        print("rook/queen attack blocked: {}".format(index + i * j))
+                        debug("rook/queen attack blocked: {}".format(index + i * j))
                         break
                 else:
                     break
 
         # check for kings
-        print("checking for king attacks")
+        debug("checking for king attacks", 2)
         for i in [-9, -8, -7, -1, 1, 7, 8, 9]:
             if 0 <= index + i < 64 and board[index + i] == ("k" if side == "w" else "K"):
-                print("king attack: {}".format(index + i))
+                debug("king attack: {}".format(index + i))
                 return True
 
-        print("no attack")
+        debug("no attack")
         return False
 
     def remove_illegal_moves(self, moves: list):
@@ -828,14 +1054,15 @@ class Chess:
 
         :return: True if the given move leaves the king of the given side in check
         """
+        debug("Checking if move {} leaves king in check".format(move))
+
+        if move == "O-O" or move == "O-O-O":
+            return False
         moved_piece = algebraic_to_board_index(move[:2])
         side = "w" if self.board[moved_piece].isupper() else "b"
         king_piece = "K" if side == "w" else "k"
 
         previous_board = self.board.copy()
         make_test_move(previous_board, move)
-        # print(self.get_board(previous_board))
         king_index = previous_board.index(king_piece)
         return self.is_square_attacked(king_index, previous_board)
-
-
