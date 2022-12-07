@@ -54,7 +54,7 @@ The class provides the following methods:
 
 """
 
-import re
+import ure
 
 RANK = ["1", "2", "3", "4", "5", "6", "7", "8"]
 FILE = ["a", "b", "c", "d", "e", "f", "g", "h"]
