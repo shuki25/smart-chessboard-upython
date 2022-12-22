@@ -74,6 +74,7 @@ STARTING_POSITION = 0xFFFF00000000FFFF
 class Chessboard:
     io_expander = []
     board = list(" " * 64)
+    bitboard = list(" " * 64)
     board_coords = {}
     board_coords_reverse = {}
     board_status = 0xFFFF00000000FFFF
@@ -177,10 +178,11 @@ class Chessboard:
             data = (self.board_status & IO_EXPANDER_MASK[self.board_coords[square][0]]) >> IO_EXPANDER_SHIFT[
                 self.board_coords[square][0]
             ]
-            # if data & self.board_coords[square][1]:
-            #     self.board[square] = 1
-            # else:
-            #     self.board[square] = 0
+            board_idx = self.algebraic_to_board_index(square)
+            if data & self.board_coords[square][1]:
+                self.bitboard[board_idx] = 1
+            else:
+                self.bitboard[board_idx] = 0
 
     def print_board(self):
         """
@@ -195,6 +197,29 @@ class Chessboard:
             for j, file in enumerate(FILE):
                 square = (i-1)*8+j
                 print(" %s |" % self.board[square], end="")
+            print()
+            i -= 1
+        print("  ---------------------------------")
+        print("  |", end="")
+        for file in FILE:
+            print("", file.upper(), end=" |")
+        print()
+        print("  ---------------------------------")
+
+    def print_bitboard(self):
+        """
+        Print the board state to the console in bitboard format
+
+        :return: None
+        """
+        i = 8
+        for rank in PRINT_RANK:
+            print("  ---------------------------------")
+            print(rank, end=" |")
+            for j, file in enumerate(FILE):
+                square = (i - 1) * 8 + j
+
+                print(" %s |" % self.bitboard[square], end="")
             print()
             i -= 1
         print("  ---------------------------------")
