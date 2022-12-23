@@ -27,7 +27,7 @@ represent a chessboard, and is used by chess engines and chess databases.
 
 The bitboards are represented as 64-bit integers, and are used to track the
 positions of the pieces. The bitboards use setwise operations to test the
-board sqaures to indicate if the square is occupied by a piece.
+board squares to indicate if the square is occupied by a piece.
 
 """
 import machine
@@ -144,6 +144,14 @@ class Chessboard:
                     j += 1
             i -= 1
 
+    def reset_board(self):
+        """
+        Reset the board to the starting position
+
+        :return: None
+        """
+        self.parse_fen(FEN_STARTING_POSITION)
+
     def generate_board_coords(self):
         """
         Generate a dictionary of board coordinates and bit positions for each IO expander
@@ -190,12 +198,12 @@ class Chessboard:
 
         :return: None
         """
-        i=8
+        i = 8
         for rank in PRINT_RANK:
             print("  ---------------------------------")
             print(rank, end=" |")
             for j, file in enumerate(FILE):
-                square = (i-1)*8+j
+                square = (i - 1) * 8 + j
                 print(" %s |" % self.board[square], end="")
             print()
             i -= 1
