@@ -1,4 +1,4 @@
-import chess
+from src import chess
 from pytest_unordered import unordered
 from pytest_check import check
 
