@@ -55,6 +55,7 @@ The class provides the following methods:
 """
 
 import sys
+
 if sys.implementation.name == "micropython":
     import ure
 else:
@@ -63,7 +64,8 @@ else:
 RANK = ["1", "2", "3", "4", "5", "6", "7", "8"]
 FILE = ["a", "b", "c", "d", "e", "f", "g", "h"]
 PROMOTED_PIECES = ["N", "B", "R", "Q"]
-DEBUG = 0 # 0 = no debug, 1 = debug, 2 = verbose debug
+MOVE_NOTATION_REGEX = r"([a-h][1-8])?([-x])?([a-h][1-8])(=?[NBRQnbrq])?(e\.p\.)?"
+DEBUG = 0  # 0 = no debug, 1 = debug, 2 = verbose debug
 
 
 def move_notation(
@@ -117,12 +119,15 @@ def validate_notation(chess_move: str) -> bool:
     if chess_move in ["O-O", "O-O-O"]:
         return True
 
-    regex = ure.compile(r"([a-h][1-8])([-x]?)([a-h][1-8])(=?[NBRQnbrq])?(e\.p\.)?")
+    regex = ure.compile(MOVE_NOTATION_REGEX)
     match = regex.match(chess_move)
     if match:
         if sys.implementation.name != "micropython":
             debug("match: {}".format(match.groups()), 2)
-        if match.group(2) == "x" and match.group(4):
+        if match.group(1) is None and match.group(3) and not match.group(2):
+            print("pawn push: {}".format(match.group(3)))
+            return True
+        elif match.group(2) == "x" and match.group(4):
             if match.group(1) and match.group(3):
                 return True
         elif (match.group(2) == "" or match.group(2) == "-" or match.group(2) == "x") and not match.group(4):
@@ -140,6 +145,55 @@ def validate_notation(chess_move: str) -> bool:
             return False
     else:
         return False
+
+
+def parse_move_notation(chess_move: str) -> tuple:
+    """
+    Parse chess move in algebraic notation
+
+    :param chess_move: chess move in algebraic notation
+    :return: tuple of from_square, to_square, capture, promotion, enpassant, castle
+    """
+    valid = 1
+    debug("validating notation: {}".format(chess_move), 2)
+    if chess_move in ["O-O", "O-O-O"]:
+        castle = "K" if chess_move == "O-O" else "Q"
+        return "O", "O", False, None, False, castle
+
+    regex = ure.compile(MOVE_NOTATION_REGEX)
+    match = regex.match(chess_move)
+    valid_move = False
+    if match:
+        if sys.implementation.name != "micropython":
+            debug("match: {}".format(match.groups()), 2)
+        if match.group(1) is None and match.group(3) and not match.group(2):
+            valid_move = True
+        elif match.group(2) == "x" and match.group(4):
+            if match.group(1) and match.group(3):
+                valid_move = True
+        elif (match.group(2) == "" or match.group(2) == "-" or match.group(2) == "x") and not match.group(4):
+            if match.group(1) and match.group(3):
+                valid_move = True
+        elif match.group(1) and not match.group(2) and match.group(3):
+            valid_move = True
+        elif match.group(1) and match.group(3) and "=" in chess_move and match.group(4):
+            valid_move = True
+        elif match.group(2) == "x" and match.group(5):
+            valid_move = True
+        elif not match.group(1) or not match.group(3):
+            valid_move = False
+        else:
+            valid_move = False
+
+    if valid_move:
+        from_square = match.group(1)
+        to_square = match.group(3)
+        capture = True if match.group(2) == "x" else False
+        promotion = match.group(4)[1] if match.group(4) else None
+        enpassant = True if match.group(5) else False
+        return from_square, to_square, capture, promotion, enpassant, False
+    else:
+        return None, None, None, None, None, None
 
 
 def algebraic_to_board_index(algebraic):
