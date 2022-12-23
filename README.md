@@ -50,10 +50,10 @@ esptool.py --chip esp32 --port /dev/cu.usbserial-0001 --baud 460800 write_flash 
 ```
 
 ## Bytecode compilation
-Due to large size of the chess program, it is necessary to compile them  into bytecode and stored in the `bytecode-complied` folder. To compile the scripts, run:
+Due to large size of the chess program, it is necessary to compile them into bytecode and stored in the `bytecode-complied` folder. The repository includes bytecode compiled scripts to be uploaded to micropython.  If you are modifying some of the scripts, you would need to re-compile the scripts by running a script in the `src` folder.  The script will compile all the scripts in the `src` folder and store them in the `bytecode-complied` folder.  The script is `compile-project`.  To run the script, run the following command:
 ```bash
-mpy-cross-v6 *.py
-mv *.mpy bytecode-compiled/
+cd src
+./compile-project
 ```
 
 ## Installing this project
@@ -73,3 +73,13 @@ mv *.mpy bytecode-compiled/
 >>> import mip
 >>> mip.install("ssd1306")
 ```
+After installing the dependencies, you can upload the files in the `bytecode-compiled` folder to the ESP32 board via Thonny IDE or other tools. The files in the `bytecode-compiled` folder are the compiled scripts that are ready to be uploaded to the ESP32 board. However, the scripts `boot.py` and `main.py` are not compiled.  They are the scripts that are executed when the ESP32 board is powered on.  The `boot.py` script is executed first and the `main.py` script is executed after the `boot.py` script is executed.  The `boot.py` script is responsible for the ESP32 startup and the `main.py` script is responsible for loading and running the chess program.
+
+## Installing the Nextion display firmware
+
+### Two ways to install the Nextion display firmware
+1. Using the Nextion Editor
+- Download the latest version of the [Nextion Editor](https://nextion.tech/download/)
+- Upload the `smart-chessboard.tft` file to the Nextion display using the Nextion Editor software
+
+2. Using the Nextion Uploader
