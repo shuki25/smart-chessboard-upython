@@ -26,12 +26,8 @@ IO_EXPANDER_2_ADDRESS = 0x22
 IO_EXPANDER_3_ADDRESS = 0x23
 
 # UI Buttons
-BUTTON_W_RESIGN = 0x10
-BUTTON_W_DRAW = 0x20
-BUTTON_W_MOVE = 0x40
-BUTTON_B_RESIGN = 0x100
-BUTTON_B_DRAW = 0x200
-BUTTON_B_MOVE = 0x400
+BUTTON_WHITE = 13
+BUTTON_BLACK = 12
 
 # Initialization
 i2c_mux_addr = 0x70
@@ -146,7 +142,7 @@ async def connect_wifi():
 async def event_listener():
     global tft, queue, lock, rtc
     global io_expander_interrupt_flag, chessboard, board, board_status, i2c
-    global white_clock, black_clock, i2c_mux
+    global white_clock, black_clock, i2c_mux, button_interrupt_flag, button_interrupt_id
 
     msg_count = 0
     loop_counter = 0
@@ -163,6 +159,8 @@ async def event_listener():
     chessboard.read_board()
     board_status, board = chessboard.get_board()
     curr_pieces = chessboard.count_pieces(board_status)
+    simulated_board_status = board_status
+    print("Initial board status: {}".format(board_status))
     capture_flag = False
     piece_removed = False
     position_changed_flag = False
@@ -209,122 +207,136 @@ async def event_listener():
             print("Touch in sleep event: Page %s, Component %s, Touch %s" % data)
 
         if not game_in_progress and not show_setup_message:
+            print("Set up the playing pieces on the board")
             show_setup_message = True
             white_clock.display_text("Set up board to", 0, 0)
             white_clock.display_text("starting position.", 0, 10, clear=False)
-            io_expander_interrupt_flag = True
             while True:
-                if io_expander_interrupt_flag:
-                    io_expander_interrupt_flag = False
-                    chessboard.read_board()
-                    chessboard_led.show_setup_squares(chessboard)
-                    board_status, board = chessboard.get_board()
-                    if board_status == STARTING_POSITION:
-                        break
+                chessboard.read_board()
+                chessboard_led.show_setup_squares(chessboard)
+                board_status, board = chessboard.get_board()
+                if board_status == STARTING_POSITION:
+                    break
                 await uasyncio.sleep_ms(100)
             white_clock.display_text("Ready to start.", 0, 0)
             white_clock.display_text("Press the button", 0, 10, clear=False)
             white_clock.display_text("to start game.", 0, 20, clear=False)
+            prev_board_status = board_status
+            simulated_board_status = board_status
 
-        if io_expander_interrupt_flag:
+        if button_interrupt_flag:
+            button_interrupt_flag = False
+
+            if not button_white.value() and not button_black.value() and game_in_progress:
+                print("Both buttons pressed")
+                print("Resetting board positions")
+                game_in_progress = False
+                show_setup_message = False
+                white_clock.display_text("Game reset.", 0, 0)
+                black_clock.display_text("Game reset.", 0, 0)
+                piece_removed = False
+                capture_flag = False
+                board_state_piece_lifted = 0
+                board_state_capturing_piece = 0
+                board_state_captured_piece = 0
+                position_changed_flag = False
+                chessboard.reset_board()
+                chessboard.read_board()
+                board_status, board = chessboard.get_board()
+                prev_board_status = board_status
+                simulated_board_status = board_status
+                curr_pieces = chessboard.count_pieces(board_status)
+                chessboard.print_board()
+            elif not button_white.value() and not game_in_progress:
+                game_in_progress = True
+                white_clock.set_clock(900)
+                white_clock.start_clock()
+                black_clock.set_clock(900)
+
+
+        # Simulate io_expander interrupt (due to errorenous pin assignment in schematic)
+        chessboard.read_board()
+        board_status, board = chessboard.get_board()
+        if board_status != simulated_board_status:
+            io_expander_interrupt_flag = True
+            simulated_board_status = board_status
+            print("Simulated IO Expander interrupt")
+
+        if io_expander_interrupt_flag and game_in_progress:
             io_expander_interrupt_flag = False
-            # ui_state = ui_expander.read_input_port()
-            if ui_state != prev_ui_state:
-                print("UI state changed")
-                print("UI state: %s" % ui_state)
-                if ui_state & BUTTON_W_RESIGN and game_in_progress:
-                    print("Resign button pressed")
-                    print("Resetting board positions")
-                    await chessboard.reset_board_to_starting_position()
-                if game_in_progress:
-                    print("board state was reset")
+            print("IO Expander interrupt")
+            chessboard.read_board()
+            board_status, board = chessboard.get_board()
+            if not position_changed_flag and board_status != prev_board_status:
+                position_changed_flag = True
+                print("board position changed")
+            if position_changed_flag:
+                num_pieces = chessboard.count_pieces(board_status)
+                if num_pieces < curr_pieces:
+                    if curr_pieces - num_pieces == 1 and not capture_flag:
+                        piece_removed = True
+                        print(
+                            "Piece lifted: %s"
+                            % chessboard.coord_to_algebraic((prev_board_status & (board_status ^ INVERSE_MASK)))
+                        )
+                        board_state_piece_lifted = board_status
+                    elif curr_pieces - num_pieces == 2:
+                        capture_flag = True
+                        print(
+                            "Capture detected: %s"
+                            % chessboard.coord_to_algebraic(
+                                (board_state_piece_lifted & (board_status ^ INVERSE_MASK))
+                            )
+                        )
+                        board_state_capturing_piece = board_state_piece_lifted
+                        board_state_captured_piece = board_status
+                piece_diff = num_pieces - curr_pieces
+                print(
+                    "Piece diff: %s, Piece removed: %s, Capture detected: %s"
+                    % (piece_diff, piece_removed, capture_flag)
+                )
+
+                print("board status: %s" % board_status)
+                if board_status != prev_board_status and piece_diff == 0:
+                    print("Piece moved")
+                    move = chessboard.detect_move_positions(prev_board_status, board_status)
+                    print("%s-%s" % move)
+                    chessboard.update_board_move(move)
+                    chessboard.print_board()
+                    prev_board_status = board_status
                     piece_removed = False
                     capture_flag = False
                     board_state_piece_lifted = 0
                     board_state_capturing_piece = 0
                     board_state_captured_piece = 0
-                    chessboard.read_board()
-                    board_status, board = chessboard.get_board()
-                    prev_board_status = board_status
-                    curr_pieces = chessboard.count_pieces(board_status)
-                    chessboard.print_board()
-                else:
-                    game_in_progress = True
-                    white_clock.set_clock(90)
-                    white_clock.start_clock()
-            else:
-                chessboard.read_board()
-                board_status, board = chessboard.get_board()
-                if not position_changed_flag and board_status != prev_board_status:
-                    position_changed_flag = True
-                    print("board position changed")
-                if position_changed_flag:
-                    num_pieces = chessboard.count_pieces(board_status)
-                    if num_pieces < curr_pieces:
-                        if curr_pieces - num_pieces == 1 and not capture_flag:
-                            piece_removed = True
-                            print(
-                                "Piece lifted: %s"
-                                % chessboard.coord_to_algebraic((prev_board_status & (board_status ^ INVERSE_MASK)))
-                            )
-                            board_state_piece_lifted = board_status
-                        elif curr_pieces - num_pieces == 2:
-                            capture_flag = True
-                            print(
-                                "Capture detected: %s"
-                                % chessboard.coord_to_algebraic(
-                                    (board_state_piece_lifted & (board_status ^ INVERSE_MASK))
-                                )
-                            )
-                            board_state_capturing_piece = board_state_piece_lifted
-                            board_state_captured_piece = board_status
-                    piece_diff = num_pieces - curr_pieces
-                    print(
-                        "Piece diff: %s, Piece removed: %s, Capture detected: %s"
-                        % (piece_diff, piece_removed, capture_flag)
+                    curr_pieces = num_pieces
+                    position_changed_flag = False
+                elif board_status != prev_board_status and piece_diff == -1 and capture_flag and piece_removed:
+                    print("Piece captured")
+                    move = chessboard.detect_capture_move_positions(
+                        prev_board_status, board_state_capturing_piece, board_state_captured_piece
                     )
-
-                    print("board status: %s" % board_status)
-                    if board_status != prev_board_status and piece_diff == 0:
-                        print("Piece moved")
-                        move = chessboard.detect_move_positions(prev_board_status, board_status)
-                        print("%s-%s" % move)
-                        chessboard.update_board_move(move)
-                        chessboard.print_board()
-                        prev_board_status = board_status
-                        piece_removed = False
-                        capture_flag = False
-                        board_state_piece_lifted = 0
-                        board_state_capturing_piece = 0
-                        board_state_captured_piece = 0
-                        curr_pieces = num_pieces
-                        position_changed_flag = False
-                    elif board_status != prev_board_status and piece_diff == -1 and capture_flag and piece_removed:
-                        print("Piece captured")
-                        move = chessboard.detect_capture_move_positions(
-                            prev_board_status, board_state_capturing_piece, board_state_captured_piece
-                        )
-                        print("%sx%s" % move)
-                        chessboard.update_board_move(move)
-                        chessboard.print_board()
-                        prev_board_status = board_status
-                        piece_removed = False
-                        capture_flag = False
-                        board_state_piece_lifted = 0
-                        board_state_capturing_piece = 0
-                        board_state_captured_piece = 0
-                        curr_pieces = num_pieces
-                        position_changed_flag = False
-                    elif board_status == prev_board_status:
-                        print("Piece moved back to original position")
-                        piece_removed = False
-                        capture_flag = False
-                        board_state_piece_lifted = 0
-                        board_state_capturing_piece = 0
-                        board_state_captured_piece = 0
-                        curr_pieces = num_pieces
-                        chessboard.print_board()
-                        position_changed_flag = False
+                    print("%sx%s" % move)
+                    chessboard.update_board_move(move)
+                    chessboard.print_board()
+                    prev_board_status = board_status
+                    piece_removed = False
+                    capture_flag = False
+                    board_state_piece_lifted = 0
+                    board_state_capturing_piece = 0
+                    board_state_captured_piece = 0
+                    curr_pieces = num_pieces
+                    position_changed_flag = False
+                elif board_status == prev_board_status:
+                    print("Piece moved back to original position")
+                    piece_removed = False
+                    capture_flag = False
+                    board_state_piece_lifted = 0
+                    board_state_capturing_piece = 0
+                    board_state_captured_piece = 0
+                    curr_pieces = num_pieces
+                    chessboard.print_board()
+                    position_changed_flag = False
         loop_counter += 1
         if game_in_progress:
             white_clock.update_clock()
@@ -397,7 +409,7 @@ async def main():
                 print("SD Card mount failed: %s" % e)
 
     # Set up Wifi connection
-    await uasyncio.create_task(connect_wifi())
+    #await uasyncio.create_task(connect_wifi())
 
     # set up I2C multiplexer
     i2c = machine.I2C(0, scl=i2c_scl, sda=i2c_sda, freq=400000)
@@ -424,9 +436,9 @@ async def main():
     # ui_input = ui_expander.read_input_port()
 
     # Set up interrupters
-    for io_interrupt_pin in io_interrupts:
-        io_interrupt_pin.irq(trigger=machine.Pin.IRQ_FALLING, handler=io_expander_callback)
-        print("%s interrupt set up, current state: %s" % (io_interrupt_pin ,io_interrupt_pin.value()))
+    # for io_interrupt_pin in io_interrupts:
+    #     io_interrupt_pin.irq(trigger=machine.Pin.IRQ_FALLING, handler=io_expander_callback)
+    #     print("%s interrupt set up, current state: %s" % (io_interrupt_pin ,io_interrupt_pin.value()))
 
     # Set up interrupter for tactile switch
     button_white.irq(trigger=machine.Pin.IRQ_FALLING, handler=button_callback)
@@ -447,5 +459,3 @@ async def main():
         loop.run_until_complete(event_listener())
     finally:
         loop.close()
-
-uasyncio.run(main())
