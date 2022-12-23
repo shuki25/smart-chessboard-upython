@@ -1,8 +1,34 @@
 #!/bin/bash
 
-for file in $(find *.py); do
-    echo $file
-    mpy-cross-v6 $file
+# This script compiles the project and creates a .mpy file in the project
+# src directory and moves them to the project bytecode-compiled directory.
+
+while getopts "O:" opt; do
+    case $opt in
+        O)
+            optimization=$OPTARG
+            ;;
+        \?)
+            echo "Invalid option: -$OPTARG" >&2
+            exit 1
+            ;;
+        :)
+            echo "Option -$OPTARG requires an argument." >&2
+            exit 1
+            ;;
+    esac
 done
 
+for file in $(find *.py); do
+    if [ -z ${optimization+x} ]; then
+        echo "Byte compiling $file ..."
+        mpy-cross-v6 $file
+
+    else
+        echo "Byte compiling $file with optimization $optimization ..."
+        mpy-cross-v6 -O$optimization $file
+    fi
+done
+
+rm boot.mpy main.mpy
 mv *.mpy ../bytecode-compiled
