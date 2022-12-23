@@ -105,7 +105,46 @@ class ChessboardLED:
         for i, occupied in enumerate(board.bitboard):
             if not occupied and i // 8 in [0, 1, 6, 7]:
                 mask.append(i)
-                self.driver[i] = (100, 0, 0)
+                self.driver[i] = (128, 0, 8)
+        self.driver.write()
+
+    def show_legal_moves(self, origin, board: Chess):
+        """
+        Show the legal moves on the LED matrix
+
+        :param legal_moves: list of legal moves
+        :param side: side to move
+
+        :return: None
+        """
+        if origin is None:
+            return
+
+        origin_square = chess.algebraic_to_board_index(origin)
+        if board[origin_square] is None:
+            return
+
+        side = 'w' if board[origin_square].isupper() else 'b'
+        if side != board.turn:
+            self.driver.fill((64, 0, 0))
+            self.driver[origin_square] = (0, 0, 64)
+            self.driver.write()
+            return
+
+        self.driver.fill((0, 0, 0))
+        self.driver[origin_square] = (0, 0, 64)
+
+        legal_moves = board.get_legal_moves(origin_square)
+
+        for i, move in enumerate(legal_moves):
+            from_square, to_square, capture, promotion, enpassant, castle = chess.parse_move_notation(move)
+            index = chess.algebraic_to_board_index(to_square)
+            if capture:
+                self.driver[index] = (100, 0, 0)
+            elif promotion:
+                self.driver[index] = (0, 100, 100)
+            else:
+                self.driver[index] = (0, 32, 0)
         self.driver.write()
 
     async def wagtag(self, period_ms=100):
