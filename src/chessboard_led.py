@@ -129,14 +129,12 @@ class ChessboardLED:
                 await uasyncio.sleep_ms(50)
                 for i in range(0, int(pixel / 2)):
                     self.driver[i] = (0, 0, 64)
-                # print("blue")
             else:
                 self.driver.fill((0, 0, 0))
                 self.driver.write()
                 await uasyncio.sleep_ms(50)
                 for i in range(int(pixel / 2), int(pixel)):
                     self.driver[i] = (64, 0, 0)
-                # print("red")
             self.driver.write()
             ticks += 1
             await uasyncio.sleep_ms(period_ms)
