@@ -108,12 +108,60 @@ class ChessboardLED:
                 self.driver[i] = (128, 0, 8)
         self.driver.write()
 
-    def show_legal_moves(self, origin, board: Chess):
+    def show_interim_move(self, move: str, side: str):
+        """
+        Show the interim move on the LED matrix
+
+        :param move: move in algebraic notation
+        :param side: side to move
+
+        :return: None
+        """
+
+        from_square, to_square, capture, promotion, enpassant, castle = chess.parse_move_notation(move)
+
+        self.driver.fill((0, 0, 0))
+
+        if not castle:
+            from_index = chess.algebraic_to_board_index(from_square)
+            to_index = chess.algebraic_to_board_index(to_square)
+            self.driver[from_index] = (0, 0, 18)
+            if capture:
+                self.driver[to_index] = (255, 0, 0)
+            elif promotion:
+                self.driver[to_index] = (0, 100, 100)
+            else:
+                self.driver[to_index] = (155, 65, 0)
+        else:
+            if castle == "K" and side == "w":
+                self.driver[4] = (0, 0, 18)
+                self.driver[5] = (155, 65, 0)
+                self.driver[6] = (155, 65, 0)
+                self.driver[7] = (0, 0, 18)
+            elif castle == "Q" and side == "w":
+                self.driver[4] = (0, 0, 18)
+                self.driver[3] = (155, 65, 0)
+                self.driver[2] = (155, 65, 0)
+                self.driver[0] = (0, 0, 18)
+            elif castle == "K" and side == "b":
+                self.driver[60] = (0, 0, 18)
+                self.driver[61] = (155, 65, 0)
+                self.driver[62] = (155, 65, 0)
+                self.driver[63] = (0, 0, 18)
+            elif castle == "Q" and side == "b":
+                self.driver[60] = (0, 0, 18)
+                self.driver[59] = (155, 65, 0)
+                self.driver[58] = (155, 65, 0)
+                self.driver[56] = (0, 0, 18)
+
+        self.driver.write()
+
+    def show_legal_moves(self, origin, board: chess.Chess):
         """
         Show the legal moves on the LED matrix
 
-        :param legal_moves: list of legal moves
-        :param side: side to move
+        :param origin: origin square
+        :param board: Chess object
 
         :return: None
         """
@@ -135,16 +183,37 @@ class ChessboardLED:
         self.driver[origin_square] = (0, 0, 64)
 
         legal_moves = board.get_legal_moves(origin_square)
+        print(legal_moves)
 
         for i, move in enumerate(legal_moves):
             from_square, to_square, capture, promotion, enpassant, castle = chess.parse_move_notation(move)
-            index = chess.algebraic_to_board_index(to_square)
-            if capture:
-                self.driver[index] = (100, 0, 0)
-            elif promotion:
-                self.driver[index] = (0, 100, 100)
+            if castle:
+                if castle in "Kk":
+                    if side == 'b':
+                        self.driver[61] = (0, 100, 64)
+                        self.driver[62] = (0, 100, 0)
+                        self.driver[63] = (100, 100, 100)
+                    else:
+                        self.driver[5] = (0, 100, 64)
+                        self.driver[6] = (0, 100, 0)
+                        self.driver[7] = (100, 100, 100)
+                elif castle in "Qq":
+                    if side == 'b':
+                        self.driver[59] = (0, 100, 64)
+                        self.driver[58] = (0, 100, 0)
+                        self.driver[56] = (100, 100, 100)
+                    else:
+                        self.driver[3] = (0, 100, 64)
+                        self.driver[2] = (0, 100, 0)
+                        self.driver[0] = (100, 100, 100)
             else:
-                self.driver[index] = (0, 32, 0)
+                index = chess.algebraic_to_board_index(to_square)
+                if capture:
+                    self.driver[index] = (100, 0, 0)
+                elif promotion:
+                    self.driver[index] = (0, 100, 100)
+                else:
+                    self.driver[index] = (0, 32, 0)
         self.driver.write()
 
     async def wagtag(self, period_ms=100):

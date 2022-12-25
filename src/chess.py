@@ -203,6 +203,9 @@ def algebraic_to_board_index(algebraic):
     :param algebraic: board index
     :return: board index
     """
+    if algebraic in ["O-O", "O-O-O"]:
+        return None
+
     debug("algebraic to board index: {}".format(algebraic), 2)
     return RANK.index(algebraic[1]) * 8 + FILE.index(algebraic[0].lower())
 
@@ -363,6 +366,17 @@ class Chess:
             s += "  +---------------+\n"
             s += "   a b c d e f g h"
             return s
+
+    def identify_piece(self, coord: str):
+        """
+        Identify the piece at the given board coordinate.
+
+        :param coord: board coordinate in algebraic notation
+
+        :return: the piece at the given board coordinate
+        """
+        index = algebraic_to_board_index(coord)
+        return self.board[index]
 
     def is_enemy(self, index: int, color: str):
         """
@@ -668,6 +682,20 @@ class Chess:
         else:
             return self.check_regular_move(move, side)
 
+    def can_king_castle(self, side: str):
+        """
+        Check if a king can castle
+
+        :param side: side to check
+        :return: True if king can castle, False otherwise
+        """
+        index = self.board.index("K") if side == "w" else self.board.index("k")
+        move_list = self.get_legal_moves(index)
+
+        if "O-O" in move_list or "O-O-O" in move_list:
+            return True
+        return False
+
     def check_castle(self, index: int, side: str = "w"):
         """
         Check if a castle move is valid
@@ -676,7 +704,6 @@ class Chess:
         :param side: side to move
         :return: True if move is valid, False otherwise
         """
-
         if side == "w":
             if self.board.index("K") != 4:
                 return False
