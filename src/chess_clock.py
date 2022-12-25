@@ -96,6 +96,8 @@ class ChessClock:
             self.clock_running = False
         else:
             mins, secs = divmod(self.clock_countdown, 60)
+            if secs > 59:
+                secs = 59
             if mins < 1:
                 clock_text = "     {:04.1f}".format(secs)
             else:
