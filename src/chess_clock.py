@@ -3,6 +3,7 @@ from i2c_multiplex import I2CMultiplex
 import lcdfont20
 from writer import Writer
 import time
+import math
 
 # Constants
 OLED_WIDTH = 128
@@ -95,9 +96,7 @@ class ChessClock:
             self.clock_countdown = 0
             self.clock_running = False
         else:
-            mins, secs = divmod(self.clock_countdown, 60)
-            if secs > 59:
-                secs = 59
+            mins, secs = divmod(math.floor(self.clock_countdown), 60)
             if mins < 1:
                 clock_text = "     {:04.1f}".format(secs)
             else:
