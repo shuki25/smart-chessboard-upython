@@ -69,6 +69,10 @@ IO_EXPANDER_SHIFT = [0, 16, 32, 48]
 
 INVERSE_MASK = 0xFFFFFFFFFFFFFFFF
 STARTING_POSITION = 0xFFFF00000000FFFF
+CASTLING_WHITE_KING = 0x0000000000000060
+CASTLING_WHITE_QUEEN = 0x000000000000000C
+CASTLING_BLACK_KING = 0x6000000000000000
+CASTLING_BLACK_QUEEN = 0x0C00000000000000
 
 
 class Chessboard:
@@ -268,6 +272,65 @@ class Chessboard:
         piece = self.board[start]
         self.board[start] = " "
         self.board[end] = piece
+
+    def update_castling_move(self,color: str, side: str):
+        """
+        Update the board state with a castling move
+
+        :param color: Color of the player
+        :param side: Side of the board
+
+        :return: None
+        """
+        if color == "w":
+            if side == "K":
+                self.board[4] = " "
+                self.board[5] = "R"
+                self.board[6] = "K"
+                self.board[7] = " "
+            else:
+                self.board[0] = " "
+                self.board[1] = " "
+                self.board[2] = "K"
+                self.board[3] = "R"
+                self.board[4] = " "
+        else:
+            if side == "K":
+                self.board[60] = " "
+                self.board[61] = "r"
+                self.board[62] = "k"
+                self.board[63] = " "
+            else:
+                self.board[56] = " "
+                self.board[57] = " "
+                self.board[58] = "k"
+                self.board[59] = "r"
+                self.board[60] = " "
+
+    def check_castling_positions(self, color: str, side: str, current_board=None):
+        """
+        Check if the king and rook are in the correct positions for castling
+
+        :param color: Color of the king
+        :param side: Side of the king
+        :param current_board: Current board state
+
+        :return: True if castling position is correct, False otherwise
+        """
+        if current_board is None:
+            current_board = self.board_status
+
+        if color == "w":
+            if side == "K" and current_board & CASTLING_WHITE_KING:
+                return True
+            elif side == "Q" and current_board & CASTLING_WHITE_QUEEN:
+                return True
+        elif color == "b":
+            if side == "K" and current_board & CASTLING_BLACK_KING:
+                return True
+            elif side == "Q" and current_board & CASTLING_BLACK_QUEEN:
+                return True
+        return False
 
     def detect_move_positions(self, prev_state, new_state):
         """
