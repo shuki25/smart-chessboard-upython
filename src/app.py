@@ -44,26 +44,23 @@ game: Chess
 repl_button = machine.Pin(0, machine.Pin.IN, machine.Pin.PULL_UP)
 i2c_mux_enable = machine.Pin(4, machine.Pin.OUT, machine.Pin.PULL_UP)
 led_strip = machine.Pin(25, machine.Pin.OUT)
-vls_enable = machine.Pin(26, machine.Pin.OUT, machine.Pin.PULL_UP)
-sd_card_detect = machine.Pin(15, machine.Pin.IN, machine.Pin.PULL_UP)
+vls_enable = machine.Pin(26, machine.Pin.OUT)
+sd_card_detect = machine.Pin(14, machine.Pin.IN, machine.Pin.PULL_UP)
 i2c_sda = machine.Pin(21)
 i2c_scl = machine.Pin(22)
 
 # I/O Expander Interrupts
-io_interrupt = machine.Pin(34, machine.Pin.IN, machine.Pin.PULL_UP)
-io_interrupt1 = machine.Pin(35, machine.Pin.IN, machine.Pin.PULL_UP)
-io_interrupt2 = machine.Pin(33, machine.Pin.IN, machine.Pin.PULL_UP)
-io_interrupt3 = machine.Pin(27, machine.Pin.IN, machine.Pin.PULL_UP)
-io_interrupts = [io_interrupt, io_interrupt1, io_interrupt2, io_interrupt3]
+io_interrupt = machine.Pin(27, machine.Pin.IN, machine.Pin.PULL_UP)
 
 # UI Tacile Buttons
-button_black = machine.Pin(12, machine.Pin.IN, machine.Pin.PULL_UP)
-button_white = machine.Pin(13, machine.Pin.IN, machine.Pin.PULL_UP)
+button_black = machine.Pin(BUTTON_BLACK, machine.Pin.IN, machine.Pin.PULL_UP)
+button_white = machine.Pin(BUTTON_WHITE, machine.Pin.IN, machine.Pin.PULL_UP)
 
 # UART Serial communication
-print("setting up serial")
-uart = machine.UART(1, 115200, tx=17, rx=16)
-uart.deinit()
+# print("setting up serial")
+# uart = machine.UART(2, 115200, tx=17, rx=16)
+# uart.deinit()
+uart: machine.UART
 
 # Uasyncio lock object
 lock = uasyncio.Lock()
@@ -171,9 +168,6 @@ async def event_listener():
     move_notation = None
     previous_position = None
 
-    white_clock = ChessClock(i2c, i2c_mux, [0, 3])
-    black_clock = ChessClock(i2c, i2c_mux, [0, 2])
-
     while True:
         if not lock.locked():
             await lock.acquire()
@@ -219,13 +213,15 @@ async def event_listener():
             prev_board_status, board = chessboard.get_board()
             chessboard_led.show_setup_squares(chessboard)
             while True:
-                chessboard.read_board()
-                board_status, board = chessboard.get_board()
-                if board_status != prev_board_status:
-                    chessboard_led.show_setup_squares(chessboard)
-                if board_status == STARTING_POSITION:
-                    break
-                await uasyncio.sleep_ms(500)
+                if io_expander_interrupt_flag:
+                    io_expander_interrupt_flag = False
+                    chessboard.read_board()
+                    board_status, board = chessboard.get_board()
+                    if board_status != prev_board_status:
+                        chessboard_led.show_setup_squares(chessboard)
+                    if board_status == STARTING_POSITION:
+                        break
+                await uasyncio.sleep_ms(100)
             white_clock.display_text("Ready to start.", 0, 0)
             white_clock.display_text("Press the button", 0, 10, clear=False)
             white_clock.display_text("to start game.", 0, 20, clear=False)
@@ -297,12 +293,12 @@ async def event_listener():
         # is triggered when a piece is lifted from the board by polling the board positions
         # every 100ms
 
-        chessboard.read_board()
-        board_status, board = chessboard.get_board()
-        if board_status != simulated_board_status:
-            io_expander_interrupt_flag = True
-            simulated_board_status = board_status
-            print("Simulated IO Expander interrupt")
+        # chessboard.read_board()
+        # board_status, board = chessboard.get_board()
+        # if board_status != simulated_board_status:
+        #     io_expander_interrupt_flag = True
+        #     simulated_board_status = board_status
+        #     print("Simulated IO Expander interrupt")
 
         if io_expander_interrupt_flag and game_in_progress:
             io_expander_interrupt_flag = False
@@ -474,20 +470,20 @@ def button_callback(pin):
 async def main():
     global uart, tft, sd_card_detect, sd_card_mounted
     global i2c, i2c_mux, chessboard, board, board_status
-    global chessboard_led
+    global chessboard_led, white_clock, black_clock
 
-    # Delay for three seconds to allow drop into REPL
-    count = 0
-    print("Starting in 3 seconds...")
-    while count <= 15:
-        # If button 0 is pressed, drop to REPL
-        if repl_button.value() == 0:
-            print("Dropping to REPL")
-            sys.exit()
-
-        # Do nothing
-        count += 1
-        await uasyncio.sleep_ms(200)
+    # # Delay for three seconds to allow drop into REPL
+    # count = 0
+    # print("Starting in 3 seconds...")
+    # while count <= 15:
+    #     # If button 0 is pressed, drop to REPL
+    #     if repl_button.value() == 0:
+    #         print("Dropping to REPL")
+    #         sys.exit()
+    #
+    #     # Do nothing
+    #     count += 1
+    #     await uasyncio.sleep_ms(200)
 
     # Set up SD Card if card is detected
     if not sd_card_detect.value():
@@ -503,9 +499,6 @@ async def main():
             except OSError as e:
                 print("SD Card mount failed: %s" % e)
 
-    # Set up Wi-Fi connection
-    await uasyncio.create_task(connect_wifi())
-
     # set up I2C multiplexer
     i2c = machine.I2C(0, scl=i2c_scl, sda=i2c_sda, freq=400000)
     i2c_mux_enable.off()
@@ -514,34 +507,53 @@ async def main():
     i2c_mux = I2CMultiplex(i2c, i2c_mux_addr)
     i2c_mux.activate_channel(0)
 
+    # Set up Chess Clocks
+    white_clock = ChessClock(i2c, i2c_mux, [0, 3])
+    black_clock = ChessClock(i2c, i2c_mux, [0, 2])
+    white_clock.display_text("Please wait...", y=12)
+    black_clock.display_text("Please wait...", y=12)
+
+    # Set up Wi-Fi connection
+    #await uasyncio.create_task(connect_wifi())
+
     # Set up chessboard
     chessboard = Chessboard(i2c, chessboard_gpio_addr, led_strip)
     chessboard.read_board()
     board_status, board = chessboard.get_board()
 
     # Set up Chessboard LED strip
+    print("Setting up LED strip")
     chessboard_led = ChessboardLED(led_io=led_strip, vls_io=vls_enable)
+    print("LED strip setup complete")
+    print("LED clear")
     chessboard_led.clear_board()
+    print("LED show occupied squares")
     chessboard_led.show_occupied_squares(chessboard)
 
-    # Set up interrupters
-    # for io_interrupt_pin in io_interrupts:
-    #     io_interrupt_pin.irq(trigger=machine.Pin.IRQ_FALLING, handler=io_expander_callback)
-    #     print("%s interrupt set up, current state: %s" % (io_interrupt_pin ,io_interrupt_pin.value()))
+
+    #Set up interrupters
+    io_interrupt.irq(trigger=machine.Pin.IRQ_FALLING, handler=io_expander_callback)
+    print("%s interrupt set up, current state: %s" % (io_interrupt ,io_interrupt.value()))
 
     # Set up interrupter for tactile switch
     button_white.irq(trigger=machine.Pin.IRQ_FALLING, handler=button_callback)
     button_black.irq(trigger=machine.Pin.IRQ_FALLING, handler=button_callback)
+    print("button interrupt callbacks are set up")
 
     # Create asynchronous co-routines
 
-    uart = machine.UART(1, 115200, tx=17, rx=16)
-    uart.init(115200, bits=8, parity=None, stop=1, rxbuf=2048, txbuf=2048)
+    uart = machine.UART(1, 115200, tx=33, rx=32)
+    uart.init(115200, bits=8, parity=None, stop=1, rxbuf=1024, txbuf=1024)
+    print("UART initialized")
     tft = nextion.Nextion(uart, lock, queue)
+    print("Nextion initialized")
 
     await uasyncio.sleep(2)
+    print("Performing initialization")
     await uasyncio.create_task(initialize())
+    print("Initialization complete")
 
+    print("Starting main loop")
     loop = uasyncio.get_event_loop()
     try:
         loop.run_until_complete(event_listener())

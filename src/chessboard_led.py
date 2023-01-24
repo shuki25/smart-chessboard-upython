@@ -53,7 +53,8 @@ class ChessboardLED:
             raise Exception("vls_io parameter is required")
 
         self.vls_enable = vls_io
-        self.vls_enable.value(1)
+        # set pin to low to enable buffer gate
+        self.vls_enable.value(0)
 
     def clear_board(self):
         """
