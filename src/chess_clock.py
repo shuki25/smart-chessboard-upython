@@ -92,12 +92,16 @@ class ChessClock:
             elapsed = (now - self.last_time) / 1000
             self.last_time = now
             self.clock_countdown -= elapsed
-        if self.clock_countdown < 0:
+        if self.clock_countdown <= 0:
             self.clock_countdown = 0
             self.clock_running = False
+            clock_text = "     00.0"
+            self.display_time(clock_text, 0, 12, align="R", clear=False)
         else:
+            ms = ((self.clock_countdown * 1000) % 1000) / 1000
             mins, secs = divmod(math.floor(self.clock_countdown), 60)
             if mins < 1:
+                secs = secs + ms
                 clock_text = "     {:04.1f}".format(secs)
             else:
                 clock_text = "   {:02.0f} :{:02.0f}".format(mins, secs)
@@ -122,3 +126,6 @@ class ChessClock:
 
     def center_align(self, text, x_offset=0, font_width=lcdfont20.max_width()):
         return (OLED_WIDTH - (len(text) * font_width)) // 2 - x_offset
+
+    def is_clock_expired(self):
+        return self.clock_countdown <= 0
