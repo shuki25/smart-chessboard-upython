@@ -252,6 +252,7 @@ class Chess:
     enpassant: str = "-"
     halfmove: int = 0
     fullmove: int = 1
+    history: list = []
 
     def __init__(self, fen: str = None):
         """
@@ -410,6 +411,11 @@ class Chess:
 
         :return: None
         """
+        if self.turn == "w":
+            self.history.append((move, ''))
+        else:
+            self.history[-1] = (self.history[-1][0], move)
+
         self.turn = "b" if self.turn == "w" else "w"
 
         if self.turn == "w":
@@ -431,6 +437,19 @@ class Chess:
             else:
                 self.halfmove += 1
 
+    def get_move_history(self, num_moves: int = 0):
+        """
+        Return the move history.
+
+        :param num_moves: the number of moves to return
+
+        :return: the move history
+        """
+        if num_moves == 0:
+            return self.history
+        else:
+            return self.history[-num_moves:]
+
     def is_enpassant(self, move: str):
         """
         Return True if the move is an en passant capture, and False otherwise.
@@ -440,6 +459,9 @@ class Chess:
         :return: True if the move is an en passant capture, and False otherwise
         """
         if self.enpassant == "-":
+            return False
+
+        if move in ["O-O", "O-O-O"]:
             return False
 
         index = algebraic_to_board_index(move[:2])
