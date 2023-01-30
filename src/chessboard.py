@@ -387,10 +387,13 @@ class Chessboard:
         :param algebraic: board index
         :return: board index
         """
-        if algebraic.lower() in self.board_coords.keys():
-            return RANK.index(algebraic[1]) * 8 + FILE.index(algebraic[0].lower())
-        else:
-            print("Invalid algebraic notation: %s" % algebraic)
+        try:
+            if algebraic.lower() in self.board_coords.keys():
+                return RANK.index(algebraic[1]) * 8 + FILE.index(algebraic[0].lower())
+            else:
+                print("Invalid algebraic notation: %s" % algebraic)
+        except Exception as e:
+            print("Exception: %s" % e)
 
     async def reset_board_to_starting_position(self):
         """
