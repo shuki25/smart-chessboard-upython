@@ -44,12 +44,17 @@ PACKET_LENGTH_MAP = {
     0xFE: 4,  # Transparent Data Ready
 }
 
+# Nextion Console
+CONSOLE_BUFFER_SIZE = 512
+CONSOLE_MAX_LINES = 11
+
 
 class Nextion:
 
     uart = None
     lock = None
     queue = None
+    console_buffer = []
 
     def __init__(self, uart, lock, queue):
         if isinstance(uart, machine.UART):
@@ -80,6 +85,48 @@ class Nextion:
             for i, row in enumerate(msg):
                 if len(row):
                     self.queue.put_nowait(row + EOL)
+
+    async def clear_console(self, page="test_monitor"):
+        self.console_buffer = []
+        variable_name = "%s.console.txt" % page
+        await self.set_value(variable_name, "")
+
+    async def print_console(
+        self,
+        s,
+        clear=False,
+        max_lines=CONSOLE_MAX_LINES,
+        buffer_size=CONSOLE_BUFFER_SIZE,
+        page="test_monitor",
+        replace=False,
+    ):
+        if clear:
+            await self.clear_console()
+            return
+
+        if not replace:
+            buffer = s.split("\\r")
+            if len(buffer) > 1:
+                for i, row in enumerate(buffer):
+                    if i == 0 and len(self.console_buffer) > 0:
+                        self.console_buffer[-1] += row
+                    else:
+                        self.console_buffer.append(row)
+            else:
+                self.console_buffer.append(s)
+
+            while len(self.console_buffer) >= max_lines:
+                self.console_buffer.pop(0)
+            console_buffer = "\\r".join(self.console_buffer)
+        else:
+            console_buffer = s
+
+        if len(console_buffer) > buffer_size:
+            console_buffer = console_buffer[-buffer_size:]
+
+        print("Printing to console: %s" % s)
+        variable_name = "%s.console.txt" % page
+        await self.set_value(variable_name, console_buffer)
 
     async def send_command(self, command):
         prepare_command = b"%s" % command + EOL
@@ -148,9 +195,7 @@ class Nextion:
         elif isinstance(value, int):
             out_value = str(value)
         else:
-            raise AssertionError(
-                'value type "%s" is not supported for set' % type(value).__name__
-            )
+            raise AssertionError('value type "%s" is not supported for set' % type(value).__name__)
 
         prepare_command = b"%s=%s" % (key, out_value) + EOL
         await self.lock.acquire()
