@@ -20,6 +20,7 @@ The class provides the following methods:
     - show_occupied_squares: show the occupied squares on the LED matrix
     - show_unoccupied_squares: show the unoccupied squares on the LED matrix
     - show_legal_moves: show the legal moves on the LED matrix
+    - rgb_test: test the LED matrix by showing different colors
 """
 
 from neopixel import NeoPixel
@@ -33,6 +34,9 @@ class ChessboardLED:
 
     neopixel_gpio = None
     driver: NeoPixel = None
+    test_mode = False
+    max_brightness = 150
+    led_count = 64
 
     def __init__(self, driver: NeoPixel = None, led_io: machine.Pin = None, vls_io: machine.Pin = None):
         """
@@ -47,7 +51,7 @@ class ChessboardLED:
             raise Exception("led_io parameter is required")
 
         if driver is None:
-            self.driver = NeoPixel(led_io, 64)
+            self.driver = NeoPixel(led_io, self.led_count)
 
         if vls_io is None:
             raise Exception("vls_io parameter is required")
@@ -247,3 +251,87 @@ class ChessboardLED:
             self.driver.write()
             ticks += 1
             await uasyncio.sleep_ms(period_ms)
+
+    def wheel(self, pos):
+        """
+        Generate rainbow colors across 0-255 positions.
+
+        :param pos: position
+
+        :return: color
+        """
+        if pos < self.max_brightness // 3:
+            return self.max_brightness - pos * 3, pos * 3, 0
+        elif pos < self.max_brightness * 2 // 3:
+            pos -= self.max_brightness // 3
+            return 0, self.max_brightness - pos * 3, pos * 3
+        else:
+            pos -= self.max_brightness * 2 // 3
+            return pos * 3, 0, self.max_brightness - pos * 3
+
+    async def rgb_test(self, console):
+        """
+        Test the RGB LED matrix
+
+        :return: None
+        """
+        n = self.led_count
+
+        await console("", clear=True)
+        # cycle
+        await console("Running Cycle...")
+        for i in range(4 * n):
+            for j in range(n):
+                self.driver[j] = (0, 0, 0)
+            self.driver[i % n] = (self.max_brightness, self.max_brightness, self.max_brightness)
+            self.driver.write()
+            await uasyncio.sleep_ms(25)
+
+        # bounce
+        await console("Done\\rRunning Bounce...")
+        k = 0
+        square_color = (0, 0, 0)
+        for i in range(4 * n):
+            if i % 4 == 0:
+                k += 1
+                if k % 2 == 0:
+                    square_color = (self.max_brightness // 2, 0, 0)
+                elif k % 3 == 0:
+                    square_color = (0, self.max_brightness // 2, 0)
+                else:
+                    square_color = (0, 0, self.max_brightness // 2)
+            for j in range(n):
+                self.driver[j] = square_color
+            if (i // n) % 2 == 0:
+                self.driver[i % n] = (0, 0, 0)
+            else:
+                self.driver[n - 1 - (i % n)] = (0, 0, 0)
+            self.driver.write()
+            await uasyncio.sleep_ms(60)
+
+        await console("Done\\rRunning Fade in/out...")
+        # fade in/out
+        for i in range(0, 4 * 256, 8):
+            for j in range(n):
+                if (i // 256) % 2 == 0:
+                    val = i & 0xFF
+                else:
+                    val = 255 - (i & 0xFF)
+                self.driver[j] = (val, 0, 0)
+            self.driver.write()
+
+        # rainbow
+        await console("Done\\rRunning Rainbow...")
+        for j in range(self.max_brightness):
+            for i in range(n):
+                pixel_index = (i * self.max_brightness // n) + j
+                self.driver[i] = self.wheel(pixel_index & self.max_brightness)
+            self.driver.write()
+            await uasyncio.sleep_ms(20)
+
+        await console("Done\\rClearing LED matrix...")
+        # clear the LED matrix
+        self.driver.fill((0, 0, 0))
+        self.driver.write()
+
+        await console("Done\\rAddressable LED matrix test complete")
