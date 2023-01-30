@@ -15,12 +15,20 @@ from chess import Chess
 from chessboard import Chessboard, INVERSE_MASK, STARTING_POSITION
 from chess_clock import ChessClock
 from chessboard_led import ChessboardLED
+from micropython import const
+from als import AmbientLightSensor
+
 
 # Constants
 IO_EXPANDER_0_ADDRESS = 0x20
 IO_EXPANDER_1_ADDRESS = 0x21
 IO_EXPANDER_2_ADDRESS = 0x22
 IO_EXPANDER_3_ADDRESS = 0x23
+
+# Game mode constants
+MODE_VS_CPU = const(0)
+MODE_VS_HUMAN = const(1)
+MODE_VS_HUMAN_REMOTE = const(2)
 
 # UI Buttons
 BUTTON_WHITE = 13
@@ -83,6 +91,7 @@ previous_tick = 0
 io_expander_interrupt_flag = False
 button_interrupt_flag = False
 button_interrupt_id = None
+light_sensor: AmbientLightSensor
 
 
 async def blink(led, period_ms):
@@ -134,6 +143,38 @@ async def connect_wifi():
     print(wlan.ifconfig())
 
 
+async def console_move_history(move_history, full_move_number, max_lines=13):
+    global tft
+
+    print("in console_move_history")
+    side = "b" if move_history[-1][1] == "" else "w"
+    print("side: %s" % side)
+    if len(move_history) >= max_lines:
+        move_num = full_move_number - max_lines + 1
+        if side == "w":
+            max_lines -= 1
+        history = move_history[-max_lines:]
+    else:
+        move_num = 1
+        history = move_history
+    console_buffer = ""
+
+    print("move history: %s" % history)
+    print("move number: %s" % move_num)
+
+    for i, move in enumerate(history):
+        if i > 0:
+            console_buffer += "\\r"
+        if move[1] != "":
+            console_buffer += "%d. %s %s" % (move_num + i, move[0], move[1])
+        else:
+            console_buffer += "%d. %s ..." % (move_num + i, move[0])
+    if side == "w":
+        console_buffer += "\\r%d. ..." % (move_num + i + 1)
+    print("console buffer: %s" % console_buffer)
+    await tft.print_console(console_buffer, page="game_progress", max_lines=max_lines, replace=True)
+
+
 async def event_listener():
     global tft, queue, lock, rtc, game
     global io_expander_interrupt_flag, chessboard, board, board_status, i2c
@@ -167,6 +208,11 @@ async def event_listener():
     piece_coordinate = None
     move_notation = None
     previous_position = None
+    test_mode = False
+    test_running = False
+    in_game_mode = False
+    game_mode = MODE_VS_HUMAN
+    prev_lux = 0
 
     while True:
         if not lock.locked():
@@ -184,16 +230,86 @@ async def event_listener():
             print("%s message [%s]: %s" % (rtc.datetime(), msg_count, message))
             event, data = await tft.parse_event(message)
 
+        # Parse Nextion events
         if event == nextion.TOUCH:
             (page, component, touch) = data
             print("Touch event: Page %s, Component %s, Touch %s" % data)
 
-            # CPU temperature button pressed
-            if page == 1 and component == 20:
-                tf = esp32.raw_temperature()
-                tc = (tf - 32.0) / 1.8
-                temp = "{0:3.1f}".format(tc)
-                await tft.set_value("page7.cpu_temp.txt", str(temp))
+            # Start game
+            if page == 4 and component == 7:
+                game_mode = MODE_VS_CPU
+                in_game_mode = True
+
+            if page == 4 and component == 3:
+                game_mode = MODE_VS_HUMAN
+                in_game_mode = True
+                await tft.send_command("page game_progress")
+                await tft.clear_console(page="game_progress")
+                await tft.print_console("Set up board and press button to begin", page="game_progress")
+
+            if page == 4 and component == 5:
+                game_mode = MODE_VS_HUMAN_REMOTE
+                in_game_mode = True
+
+            # Run RGB LED strip test
+            if page == 11 and component == 4:
+                test_mode = 1
+                print("Running RGB LED strip test")
+                await chessboard_led.rgb_test(tft.print_console)
+
+            # Run OLED test
+            if page == 11 and component == 5:
+                test_mode = 2
+                test_running = True
+                print("Running OLED test")
+                white_clock.clear()
+                black_clock.clear()
+                await tft.clear_console()
+                await tft.print_console("Testing white OLED display...")
+                white_clock.display_text("0123456789ABCDEF", 0, 0)
+                white_clock.display_text("GHIJKLMNOPQRSTUVW", 0, 10, clear=False)
+                white_clock.display_text("XYZ!@#$%^&*(){}',.", 0, 20, clear=False)
+                await uasyncio.sleep_ms(2000)
+                white_clock.clear()
+                await tft.print_console("Done\\rTesting black OLED display...")
+                black_clock.display_text("0123456789ABCDEF", 0, 0)
+                black_clock.display_text("GHIJKLMNOPQRSTUVW", 0, 10, clear=False)
+                black_clock.display_text("XYZ!@#$%^&*(){}',.", 0, 20, clear=False)
+                await uasyncio.sleep_ms(2000)
+                black_clock.clear()
+                await tft.print_console("Done\\rTesting white clock...")
+                white_clock.set_clock(10)
+                white_clock.start_clock()
+                if white_clock.is_clock_running():
+                    print("White clock started")
+                black_clock.set_clock(10)
+
+            # Run ambient light sensor test
+            if page == 11 and component == 6:
+                test_mode = 3
+                test_running = True
+                white_clock.clear()
+                black_clock.clear()
+                lvl = light_sensor.lux_calc()
+                await tft.clear_console()
+                await tft.print_console("Shine bright light on the sensor")
+                while lvl < 32000:
+                    lvl = light_sensor.lux_calc()
+                    await uasyncio.sleep_ms(100)
+                await tft.print_console("\\rLuminosity: %s" % lvl)
+                await tft.print_console("\\rCover the sensor with your finger")
+                while lvl > 10:
+                    lvl = light_sensor.lux_calc()
+                    await uasyncio.sleep_ms(100)
+                await tft.print_console("\\rLuminosity: %s" % lvl)
+                await tft.print_console("\\rContinous luminosity measurement until\\ryou return to the previous screen.")
+                prev_lux = lvl
+
+            # Stop test mode
+            if page == 12 and component == 3:
+                test_mode = False
+                white_clock.clear()
+                black_clock.clear()
 
             # Manual feed button pressed
             if page == 1 and component == 12:
@@ -205,243 +321,289 @@ async def event_listener():
             (page, component, touch) = data
             print("Touch in sleep event: Page %s, Component %s, Touch %s" % data)
 
-        if not game_in_progress and not show_setup_message:
-            print("Set up the playing pieces on the board")
-            show_setup_message = True
-            white_clock.display_text("Set up board to", 0, 0)
-            white_clock.display_text("starting position.", 0, 10, clear=False)
-            prev_board_status, board = chessboard.get_board()
-            chessboard_led.show_setup_squares(chessboard)
-            while True:
-                if io_expander_interrupt_flag:
-                    io_expander_interrupt_flag = False
-                    chessboard.read_board()
-                    board_status, board = chessboard.get_board()
-                    if board_status != prev_board_status:
-                        chessboard_led.show_setup_squares(chessboard)
-                    if board_status == STARTING_POSITION:
-                        break
-                await uasyncio.sleep_ms(100)
-            white_clock.display_text("Ready to start.", 0, 0)
-            white_clock.display_text("Press the button", 0, 10, clear=False)
-            white_clock.display_text("to start game.", 0, 20, clear=False)
-            prev_board_status = board_status
-            simulated_board_status = board_status
+        # Perform test mode
+        if test_mode == 2:  # OLED Display test
+            if (
+                white_clock.is_clock_expired()
+                and not black_clock.is_clock_running()
+                and not black_clock.is_clock_expired()
+            ):
+                white_clock.update_clock()
+                await tft.print_console("Done\\rTesting black clock...")
+                white_clock.stop_clock()
+                black_clock.start_clock()
+            elif black_clock.is_clock_expired() and test_running:
+                black_clock.update_clock()
+                black_clock.stop_clock()
+                white_clock.clear()
+                black_clock.clear()
+                await tft.print_console("Done\\rTesting complete")
+                test_running = False
+            elif black_clock.is_clock_running():
+                black_clock.update_clock()
+            elif white_clock.is_clock_running():
+                white_clock.update_clock()
 
-        if button_interrupt_flag:
-            button_interrupt_flag = False
+        if test_mode == 3:  # ALS Sensor Test
+            lvl = light_sensor.lux_calc()
+            min_lvl = prev_lux / 1.05
+            max_lvl = prev_lux * 1.05
+            if lvl >= max_lvl or lvl <= min_lvl:
+                print("max: %s, min: %s, lvl: %s" % (max_lvl, min_lvl, lvl))
+                clock_text = "{:7.2f}".format(lvl)
+                white_clock.display_time(clock_text, 0, 12, align="R")
+            prev_lux = lvl
+        elif test_mode == 4:  # Hall Effect Sensor Test
+            pass
 
-            if (not button_white.value() and not button_black.value() and game_in_progress) or (not button_white.value() and not game_in_progress):
-                if not button_white.value() and not button_black.value():
-                    print("Both buttons pressed")
-                    print("Resetting board positions")
-                    game_in_progress = False
-                    show_setup_message = False
-                    white_clock.display_text("Game reset.", 0, 0)
-                    black_clock.display_text("Game reset.", 0, 0)
-                piece_removed = False
-                capture_flag = False
-                board_state_piece_lifted = 0
-                board_state_capturing_piece = 0
-                board_state_captured_piece = 0
-                position_changed_flag = False
-                chessboard.reset_board()
-                chessboard.read_board()
-                board_status, board = chessboard.get_board()
+        if in_game_mode:
+            if not game_in_progress and not show_setup_message:
+                print("Set up the playing pieces on the board")
+                show_setup_message = True
+                white_clock.display_text("Set up the board", 0, 0)
+                white_clock.display_text("starting position.", 0, 10, clear=False)
+                prev_board_status, board = chessboard.get_board()
+                chessboard_led.show_setup_squares(chessboard)
+                while True:
+                    if io_expander_interrupt_flag:
+                        io_expander_interrupt_flag = False
+                        chessboard.read_board()
+                        board_status, board = chessboard.get_board()
+                        if board_status != prev_board_status:
+                            chessboard_led.show_setup_squares(chessboard)
+                        if board_status == STARTING_POSITION:
+                            break
+                    await uasyncio.sleep_ms(100)
+                white_clock.display_text("Ready to start.", 0, 0)
+                white_clock.display_text("Press the button", 0, 10, clear=False)
+                white_clock.display_text("to start game.", 0, 20, clear=False)
                 prev_board_status = board_status
                 simulated_board_status = board_status
-                curr_pieces = chessboard.count_pieces(board_status)
-                chessboard.print_board()
-                if not button_white.value() and button_black.value():
-                    game_in_progress = True
-                    game = Chess()
-                    print("turn: {}".format(game.turn))
-                    white_clock.set_clock(900)
-                    white_clock.start_clock()
-                    black_clock.set_clock(900)
-            elif game_in_progress:
-                if not button_white.value() and game.turn == 'w':
-                    print("White button pressed")
-                    if game.check_move(move_notation, side='w'):
-                        print("Valid move")
-                        chessboard_led.show_occupied_squares(chessboard)
-                        game.make_move(move_notation, side='w')
-                        white_clock.stop_clock()
-                        black_clock.start_clock()
-                    else:
-                        print("Invalid move")
-                        chessboard_led.clear_board()
-                        await uasyncio.sleep_ms(1000)
-                        chessboard_led.clear_board()
-                elif not button_black.value() and game.turn == 'b':
-                    print("Black button pressed")
-                    if game.check_move(move_notation, side='b'):
-                        print("Valid move")
-                        chessboard_led.show_occupied_squares(chessboard)
-                        game.make_move(move_notation, side='b')
-                        black_clock.stop_clock()
+                await tft.clear_console(page="game_progress")
+                await tft.print_console("1. ...", page="game_progress")
+
+            if button_interrupt_flag:
+                button_interrupt_flag = False
+
+                if (not button_white.value() and not button_black.value() and game_in_progress) or (
+                    not button_white.value() and not game_in_progress
+                ):
+                    if not button_white.value() and not button_black.value():
+                        print("Both buttons pressed")
+                        print("Resetting board positions")
+                        game_in_progress = False
+                        show_setup_message = False
+                        white_clock.display_text("Game reset.", 0, 0)
+                        black_clock.display_text("Game reset.", 0, 0)
+                    piece_removed = False
+                    capture_flag = False
+                    board_state_piece_lifted = 0
+                    board_state_capturing_piece = 0
+                    board_state_captured_piece = 0
+                    position_changed_flag = False
+                    chessboard.reset_board()
+                    chessboard.read_board()
+                    board_status, board = chessboard.get_board()
+                    prev_board_status = board_status
+                    simulated_board_status = board_status
+                    curr_pieces = chessboard.count_pieces(board_status)
+                    chessboard.print_board()
+                    if not button_white.value() and button_black.value():
+                        game_in_progress = True
+                        game = Chess()
+                        print("turn: {}".format(game.turn))
+                        white_clock.set_clock(900)
                         white_clock.start_clock()
-                    else:
-                        print("Invalid move")
-                        chessboard_led.clear_board()
-                        await uasyncio.sleep_ms(1000)
-                        chessboard_led.clear_board()
-                print("turn: {}".format(game.turn))
-                print(game)
+                        black_clock.set_clock(900)
+                elif game_in_progress:
+                    if not button_white.value() and game.turn == "w":
+                        print("White button pressed")
+                        if game.check_move(move_notation, side="w"):
+                            print("Valid move")
+                            chessboard_led.show_occupied_squares(chessboard)
+                            game.make_move(move_notation, side="w")
+                            white_clock.stop_clock()
+                            await console_move_history(game.get_move_history(), game.fullmove, max_lines=12)
+                            black_clock.start_clock()
+                        else:
+                            print("Invalid move")
+                            chessboard_led.clear_board()
+                            await uasyncio.sleep_ms(1000)
+                            chessboard_led.clear_board()
+                    elif not button_black.value() and game.turn == "b":
+                        print("Black button pressed")
+                        if game.check_move(move_notation, side="b"):
+                            print("Valid move")
+                            chessboard_led.show_occupied_squares(chessboard)
+                            game.make_move(move_notation, side="b")
+                            black_clock.stop_clock()
+                            await console_move_history(game.get_move_history(), game.fullmove, max_lines=12)
+                            white_clock.start_clock()
+                        else:
+                            print("Invalid move")
+                            chessboard_led.clear_board()
+                            await uasyncio.sleep_ms(1000)
+                            chessboard_led.clear_board()
+                    print("turn: {}".format(game.turn))
+                    print(game)
 
-        # Simulate io_expander interrupt (due to errorenous pin assignment in schematic)
-        # is triggered when a piece is lifted from the board by polling the board positions
-        # every 100ms
+            # Simulate io_expander interrupt (due to errorenous pin assignment in schematic)
+            # is triggered when a piece is lifted from the board by polling the board positions
+            # every 100ms
 
-        # chessboard.read_board()
-        # board_status, board = chessboard.get_board()
-        # if board_status != simulated_board_status:
-        #     io_expander_interrupt_flag = True
-        #     simulated_board_status = board_status
-        #     print("Simulated IO Expander interrupt")
+            # chessboard.read_board()
+            # board_status, board = chessboard.get_board()
+            # if board_status != simulated_board_status:
+            #     io_expander_interrupt_flag = True
+            #     simulated_board_status = board_status
+            #     print("Simulated IO Expander interrupt")
 
-        if io_expander_interrupt_flag and game_in_progress:
-            io_expander_interrupt_flag = False
-            print("IO Expander interrupt")
-            chessboard.read_board()
-            board_status, board = chessboard.get_board()
-            if not position_changed_flag and board_status != prev_board_status:
-                position_changed_flag = True
-                print("board position changed")
-            if position_changed_flag:
-                num_pieces = chessboard.count_pieces(board_status)
-                if num_pieces < curr_pieces:
-                    if curr_pieces - num_pieces == 1 and is_castling and potential_castle:
-                        print("Rook moved during castling")
-                    elif curr_pieces - num_pieces == 1 and not capture_flag:
-                        piece_removed = True
-                        piece_coordinate = chessboard.coord_to_algebraic(
-                            (prev_board_status & (board_status ^ INVERSE_MASK))
-                        )
-                        print("Piece lifted: %s" % piece_coordinate)
-                        board_state_piece_lifted = board_status
-                        index = chessboard.algebraic_to_board_index(piece_coordinate)
-                        piece_identifier = game.identify_piece(piece_coordinate)
-                        if piece_identifier in "Kk":
-                            print("King lifted")
-                            if game.can_king_castle(game.turn):
-                                print("Potential Castle")
-                                potential_castle = True
-                            else:
-                                print("No potential castle")
-                                potential_castle = False
-                        chessboard_led.show_legal_moves(piece_coordinate, game)
-                    elif curr_pieces - num_pieces == 2:
-                        if potential_castle:
+            if io_expander_interrupt_flag and game_in_progress:
+                io_expander_interrupt_flag = False
+                print("IO Expander interrupt")
+                chessboard.read_board()
+                board_status, board = chessboard.get_board()
+                if not position_changed_flag and board_status != prev_board_status:
+                    position_changed_flag = True
+                    print("board position changed")
+                if position_changed_flag:
+                    num_pieces = chessboard.count_pieces(board_status)
+                    if num_pieces < curr_pieces:
+                        if curr_pieces - num_pieces == 1 and is_castling and potential_castle:
+                            print("Rook moved during castling")
+                        elif curr_pieces - num_pieces == 1 and not capture_flag:
+                            piece_removed = True
                             piece_coordinate = chessboard.coord_to_algebraic(
-                                (board_state_piece_lifted & (board_status ^ INVERSE_MASK))
+                                (prev_board_status & (board_status ^ INVERSE_MASK))
                             )
                             print("Piece lifted: %s" % piece_coordinate)
                             board_state_piece_lifted = board_status
                             index = chessboard.algebraic_to_board_index(piece_coordinate)
                             piece_identifier = game.identify_piece(piece_coordinate)
-                            if piece_identifier in 'Rr':
-                                print("The king is castling")
-                                is_castling = True
-                                if index in [7, 63]:
-                                    print("King side castle")
-                                    castling_side = "K"
-                                elif index in [0, 56]:
-                                    print("Queen side castle")
-                                    castling_side = "Q"
+                            if piece_identifier in "Kk":
+                                print("King lifted")
+                                if game.can_king_castle(game.turn):
+                                    print("Potential Castle")
+                                    potential_castle = True
                                 else:
-                                    print("Invalid castle")
-                                    castling_side = None
-                        else:
-                            capture_flag = True
-                            print(
-                                "Capture detected: %s"
-                                % chessboard.coord_to_algebraic((board_state_piece_lifted & (board_status ^ INVERSE_MASK)))
-                            )
-                            board_state_capturing_piece = board_state_piece_lifted
-                            board_state_captured_piece = board_status
-                piece_diff = num_pieces - curr_pieces
-                print(
-                    "Piece diff: %s, Piece removed: %s, Capture detected: %s, Potential castle: %s, Is castling: %s"
-                    % (piece_diff, piece_removed, capture_flag, potential_castle, is_castling)
-                )
-
-                print("board status: %s" % board_status)
-                if board_status != prev_board_status and piece_diff == 0:
-                    print("Move completed")
-                    if potential_castle and is_castling:
-                        print("Move recognized as castling")
-                        if chessboard.check_castling_positions(game.turn, castling_side, board_status):
-                            move_notation = "O-O" if castling_side == "K" else "O-O-O"
-                            chessboard.update_castling_move(game.turn, castling_side)
-                            potential_castle = False
-                            is_castling = False
-                            castling_side = None
-                    else:
-                        move = chessboard.detect_move_positions(prev_board_status, board_status)
-                        move_notation = "%s-%s" % move
-                        original_position = move[0]
-                        print("%s-%s" % move)
-                        chessboard.update_board_move(move)
-                    chessboard.print_board()
-                    prev_board_status = board_status
-                    piece_removed = False
-                    capture_flag = False
-                    board_state_piece_lifted = 0
-                    board_state_capturing_piece = 0
-                    board_state_captured_piece = 0
-                    curr_pieces = num_pieces
-                    chessboard_led.show_interim_move(move_notation, game.turn)
-                    position_changed_flag = False
-                elif board_status != prev_board_status and piece_diff == -1 and capture_flag and piece_removed:
-                    print("Piece captured")
-                    move = chessboard.detect_capture_move_positions(
-                        prev_board_status, board_state_capturing_piece, board_state_captured_piece
+                                    print("No potential castle")
+                                    potential_castle = False
+                            chessboard_led.show_legal_moves(piece_coordinate, game)
+                        elif curr_pieces - num_pieces == 2:
+                            if potential_castle:
+                                piece_coordinate = chessboard.coord_to_algebraic(
+                                    (board_state_piece_lifted & (board_status ^ INVERSE_MASK))
+                                )
+                                print("Piece lifted: %s" % piece_coordinate)
+                                if piece_coordinate is not None:
+                                    board_state_piece_lifted = board_status
+                                    index = chessboard.algebraic_to_board_index(piece_coordinate)
+                                    piece_identifier = game.identify_piece(piece_coordinate)
+                                    if piece_identifier in "Rr":
+                                        print("The king is castling")
+                                        is_castling = True
+                                        if index in [7, 63]:
+                                            print("King side castle")
+                                            castling_side = "K"
+                                        elif index in [0, 56]:
+                                            print("Queen side castle")
+                                            castling_side = "Q"
+                                        else:
+                                            print("Invalid castle")
+                                            castling_side = None
+                                print("Action ignored")
+                            else:
+                                capture_flag = True
+                                print(
+                                    "Capture detected: %s"
+                                    % chessboard.coord_to_algebraic(
+                                        (board_state_piece_lifted & (board_status ^ INVERSE_MASK))
+                                    )
+                                )
+                                board_state_capturing_piece = board_state_piece_lifted
+                                board_state_captured_piece = board_status
+                    piece_diff = num_pieces - curr_pieces
+                    print(
+                        "Piece diff: %s, Piece removed: %s, Capture detected: %s, Potential castle: %s, Is castling: %s"
+                        % (piece_diff, piece_removed, capture_flag, potential_castle, is_castling)
                     )
-                    move_notation = "%sx%s" % move
-                    original_position = move[0]
-                    print("%sx%s" % move)
-                    chessboard.update_board_move(move)
-                    chessboard.print_board()
-                    prev_board_status = board_status
-                    piece_removed = False
-                    capture_flag = False
-                    board_state_piece_lifted = 0
-                    board_state_capturing_piece = 0
-                    board_state_captured_piece = 0
-                    curr_pieces = num_pieces
-                    chessboard_led.show_interim_move(move_notation, game.turn)
-                    position_changed_flag = False
-                elif board_status == prev_board_status:
-                    print("Piece moved back to original position")
-                    move_notation = None
-                    original_position = None
-                    piece_removed = False
-                    capture_flag = False
-                    board_state_piece_lifted = 0
-                    board_state_capturing_piece = 0
-                    board_state_captured_piece = 0
-                    curr_pieces = num_pieces
-                    chessboard.print_board()
-                    chessboard_led.show_occupied_squares(chessboard)
-                    position_changed_flag = False
-                    potential_castle = False
-                    is_castling = False
-        loop_counter += 1
-        if game_in_progress:
-            white_clock.update_clock()
-            black_clock.update_clock()
 
-        # If button 0 is pressed, drop to REPL
-        if repl_button.value() == 0:
-            print("Dropping to REPL")
-            sys.exit()
+                    print("board status: %s" % board_status)
+                    if board_status != prev_board_status and piece_diff == 0:
+                        print("Move completed")
+                        if potential_castle and is_castling:
+                            print("Move recognized as castling")
+                            if chessboard.check_castling_positions(game.turn, castling_side, board_status):
+                                move_notation = "O-O" if castling_side == "K" else "O-O-O"
+                                chessboard.update_castling_move(game.turn, castling_side)
+                                potential_castle = False
+                                is_castling = False
+                                castling_side = None
+                        else:
+                            move = chessboard.detect_move_positions(prev_board_status, board_status)
+                            move_notation = "%s-%s" % move
+                            original_position = move[0]
+                            print("%s-%s" % move)
+                            chessboard.update_board_move(move)
+                        chessboard.print_board()
+                        prev_board_status = board_status
+                        piece_removed = False
+                        capture_flag = False
+                        board_state_piece_lifted = 0
+                        board_state_capturing_piece = 0
+                        board_state_captured_piece = 0
+                        curr_pieces = num_pieces
+                        chessboard_led.show_interim_move(move_notation, game.turn)
+                        position_changed_flag = False
+                    elif board_status != prev_board_status and piece_diff == -1 and capture_flag and piece_removed:
+                        print("Piece captured")
+                        move = chessboard.detect_capture_move_positions(
+                            prev_board_status, board_state_capturing_piece, board_state_captured_piece
+                        )
+                        move_notation = "%sx%s" % move
+                        original_position = move[0]
+                        print("%sx%s" % move)
+                        chessboard.update_board_move(move)
+                        chessboard.print_board()
+                        prev_board_status = board_status
+                        piece_removed = False
+                        capture_flag = False
+                        board_state_piece_lifted = 0
+                        board_state_capturing_piece = 0
+                        board_state_captured_piece = 0
+                        curr_pieces = num_pieces
+                        chessboard_led.show_interim_move(move_notation, game.turn)
+                        position_changed_flag = False
+                    elif board_status == prev_board_status:
+                        print("Piece moved back to original position")
+                        move_notation = None
+                        original_position = None
+                        piece_removed = False
+                        capture_flag = False
+                        board_state_piece_lifted = 0
+                        board_state_capturing_piece = 0
+                        board_state_captured_piece = 0
+                        curr_pieces = num_pieces
+                        chessboard.print_board()
+                        chessboard_led.show_occupied_squares(chessboard)
+                        position_changed_flag = False
+                        potential_castle = False
+                        is_castling = False
+            loop_counter += 1
+            if game_in_progress:
+                white_clock.update_clock()
+                black_clock.update_clock()
+
+            # If button 0 is pressed, drop to REPL
+            if repl_button.value() == 0:
+                print("Dropping to REPL")
+                sys.exit()
 
         await uasyncio.sleep_ms(100)
 
 
 async def initialize():
-    global is_24h
+    global is_24h, wifi_connected, tft
     result = None
 
     print("Initializing Nextion...")
@@ -451,7 +613,7 @@ async def initialize():
     if buffer is not None:
         print("buffer: %s" % ubinascii.hexlify(buffer))
     await tft.send_command("bkcmd=3")
-    await tft.set_value("splash.wifi_status.val", 1)
+    await tft.set_value("splash.wifi_status.val", wifi_connected)
     await uasyncio.sleep(2)
     await tft.send_command("page main_menu")
 
@@ -470,7 +632,7 @@ def button_callback(pin):
 async def main():
     global uart, tft, sd_card_detect, sd_card_mounted
     global i2c, i2c_mux, chessboard, board, board_status
-    global chessboard_led, white_clock, black_clock
+    global chessboard_led, white_clock, black_clock, light_sensor
 
     # # Delay for three seconds to allow drop into REPL
     # count = 0
@@ -514,7 +676,7 @@ async def main():
     black_clock.display_text("Please wait...", y=12)
 
     # Set up Wi-Fi connection
-    #await uasyncio.create_task(connect_wifi())
+    # await uasyncio.create_task(connect_wifi())
 
     # Set up chessboard
     chessboard = Chessboard(i2c, chessboard_gpio_addr, led_strip)
@@ -530,10 +692,14 @@ async def main():
     print("LED show occupied squares")
     chessboard_led.show_occupied_squares(chessboard)
 
+    # Set up ambient light sensor
+    light_sensor = AmbientLightSensor(i2c)
+    lux_value = light_sensor.lux_calc()
+    print("Current ambient lumiosity level: %d" % lux_value)
 
-    #Set up interrupters
+    # Set up interrupters
     io_interrupt.irq(trigger=machine.Pin.IRQ_FALLING, handler=io_expander_callback)
-    print("%s interrupt set up, current state: %s" % (io_interrupt ,io_interrupt.value()))
+    print("%s interrupt set up, current state: %s" % (io_interrupt, io_interrupt.value()))
 
     # Set up interrupter for tactile switch
     button_white.irq(trigger=machine.Pin.IRQ_FALLING, handler=button_callback)
@@ -546,7 +712,7 @@ async def main():
     uart.init(115200, bits=8, parity=None, stop=1, rxbuf=1024, txbuf=1024)
     print("UART initialized")
     tft = nextion.Nextion(uart, lock, queue)
-    print("Nextion initialized")
+    print("Nextion instance created")
 
     await uasyncio.sleep(2)
     print("Performing initialization")
