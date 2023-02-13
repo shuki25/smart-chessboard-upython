@@ -6,6 +6,42 @@ from pytest_check import check
 board = chess.Chess()
 
 
+def test_get_square_color():
+    with check:
+        assert chess.get_square_color(0) == 0
+        assert chess.get_square_color(1) == 1
+        assert chess.get_square_color(2) == 0
+        assert chess.get_square_color(3) == 1
+        assert chess.get_square_color(4) == 0
+        assert chess.get_square_color(5) == 1
+        assert chess.get_square_color(6) == 0
+        assert chess.get_square_color(7) == 1
+        assert chess.get_square_color(8) == 1
+        assert chess.get_square_color(9) == 0
+        assert chess.get_square_color(10) == 1
+        assert chess.get_square_color(11) == 0
+        assert chess.get_square_color(12) == 1
+        assert chess.get_square_color(13) == 0
+        assert chess.get_square_color(14) == 1
+        assert chess.get_square_color(15) == 0
+        assert chess.get_square_color(16) == 0
+        assert chess.get_square_color(17) == 1
+        assert chess.get_square_color(18) == 0
+        assert chess.get_square_color(19) == 1
+        assert chess.get_square_color(20) == 0
+        assert chess.get_square_color(21) == 1
+        assert chess.get_square_color(22) == 0
+        assert chess.get_square_color(23) == 1
+        assert chess.get_square_color(56) == 1
+        assert chess.get_square_color(57) == 0
+        assert chess.get_square_color(58) == 1
+        assert chess.get_square_color(59) == 0
+        assert chess.get_square_color(60) == 1
+        assert chess.get_square_color(61) == 0
+        assert chess.get_square_color(62) == 1
+        assert chess.get_square_color(63) == 0
+
+
 def test_initial_board():
     assert board.get_board() == ["R", "N", "B", "Q", "K", "B", "N", "R",
                                  "P", "P", "P", "P", "P", "P", "P", "P",
@@ -316,6 +352,13 @@ def test_checkmate():
 
 def test_stalemate():
     board.set_fen("6k1/7R/8/8/8/8/5Q2/4K2R b - - 0 1")
+    with check:
+        assert board.is_checkmate("b") is False
+        assert board.is_checkmate("w") is False
+        assert board.is_stalemate("b") is True
+        assert board.is_stalemate("w") is False
+
+    board.set_fen("5bnr/4p1pq/4Qpkr/7p/2P4P/8/PP1PPPP1/RNB1KBNR b KQ - 0 1")
     with check:
         assert board.is_checkmate("b") is False
         assert board.is_checkmate("w") is False
