@@ -29,14 +29,41 @@ import machine
 from chessboard import Chessboard
 import uasyncio
 
+LUX_MAX = 32768
+
+
+def calculate_proportion(a: int, b: int, c: int, base: int = 10, max_val: int = 255):
+    """
+    Calculate the proportion of the given values
+
+    :param a: Value 1
+    :param b: Value 2
+    :param c: Value 3
+    :param base: Base value
+    :param max_val: Maximum value
+
+    :return: Proportion of the given values
+    """
+    if a == 0:
+        return 0
+
+    n = base + int((a * b) / c)
+
+    if n > max_val:
+        n = max_val
+
+    return n
+
 
 class ChessboardLED:
 
     neopixel_gpio = None
     driver: NeoPixel = None
     test_mode = False
-    max_brightness = 150
+    max_brightness = 175
+    min_brightness = 10
     led_count = 64
+    lux = 0
 
     def __init__(self, driver: NeoPixel = None, led_io: machine.Pin = None, vls_io: machine.Pin = None):
         """
@@ -60,6 +87,49 @@ class ChessboardLED:
         # set pin to low to enable buffer gate
         self.vls_enable.value(0)
 
+    def set_lux(self, lux):
+        """
+        Set the lux value
+
+        :param lux: Lux value
+
+        :return: None
+        """
+        self.lux = lux
+
+    def adjust_brightness(self, color: tuple, lux=None):
+        """
+        Adjust the brightness of the LED
+
+        :param color: RGB color
+        :param lux: Lux value
+
+        :return: Adjusted RGB color
+        """
+        if lux is None:
+            lux = self.lux
+
+        if lux > (LUX_MAX * 0.03125):
+            lux = LUX_MAX * 0.03125
+
+        adj_max_brightness = self.max_brightness * ((lux // (LUX_MAX * 0.003125)) + 1) / 10
+
+        adj_color = (
+            calculate_proportion(
+                color[0], adj_max_brightness, self.max_brightness, self.min_brightness, self.max_brightness
+            ),
+            calculate_proportion(
+                color[1], adj_max_brightness, self.max_brightness, self.min_brightness, self.max_brightness
+            ),
+            calculate_proportion(
+                color[2], adj_max_brightness, self.max_brightness, self.min_brightness, self.max_brightness
+            ),
+        )
+        # print("lux: {}, adj_max_brightness: {}".format(lux, adj_max_brightness))
+        # print("adj_color: {}".format(adj_color))
+
+        return adj_color
+
     def clear_board(self):
         """
         Clear the LED matrix
@@ -80,7 +150,7 @@ class ChessboardLED:
         self.driver.fill((0, 0, 0))
         for i, occupied in enumerate(board.bitboard):
             if occupied:
-                self.driver[i] = (0, 0, 32)
+                self.driver[i] = self.adjust_brightness((0, 0, 32))
         self.driver.write()
 
     def show_unoccupied_squares(self, board: Chessboard):
@@ -94,7 +164,51 @@ class ChessboardLED:
         self.driver.fill((0, 0, 0))
         for i, occupied in enumerate(board.bitboard):
             if not occupied:
-                self.driver[i] = (32, 0, 0)
+                self.driver[i] = self.adjust_brightness((32, 0, 0))
+        self.driver.write()
+
+    def show_checkmate(self, side: str):
+        """
+        Show the checkmate on the LED matrix
+
+        :param side: Side of the checkmate
+
+        :return: None
+        """
+        self.driver.fill((0, 0, 0))
+        for i in range(64):
+            if i < 32:
+                if side == "w":
+                    self.driver[i] = self.adjust_brightness((100, 0, 0))
+                else:
+                    self.driver[i] = self.adjust_brightness((0, 48, 0))
+            else:
+                if side == "b":
+                    self.driver[i] = self.adjust_brightness((100, 0, 0))
+                else:
+                    self.driver[i] = self.adjust_brightness((0, 48, 0))
+
+        self.driver.write()
+
+    def show_stalemate(self):
+        """
+        Show the stalemate on the LED matrix
+
+        :return: None
+        """
+        self.driver.fill((0, 0, 0))
+        for i in range(64):
+            if i % 8 < 4:
+                if i // 8 < 4:
+                    self.driver[i] = self.adjust_brightness((0, 0, 48))
+                else:
+                    self.driver[i] = self.adjust_brightness((0, 48, 0))
+            else:
+                if i // 8 < 4:
+                    self.driver[i] = self.adjust_brightness((0, 48, 0))
+                else:
+                    self.driver[i] = self.adjust_brightness((0, 0, 48))
+
         self.driver.write()
 
     def show_setup_squares(self, board: Chessboard):
@@ -110,7 +224,53 @@ class ChessboardLED:
         for i, occupied in enumerate(board.bitboard):
             if not occupied and i // 8 in [0, 1, 6, 7]:
                 mask.append(i)
-                self.driver[i] = (128, 0, 8)
+                self.driver[i] = self.adjust_brightness((128, 0, 8))
+        self.driver.write()
+
+    def show_bitboard_squares(self, bitboard: int, color: tuple = (0, 0, 32)):
+        """
+        Show the bitboard squares on the LED matrix
+
+        :param bitboard: bitboard
+        :param color: color of the LED
+
+        :return: None
+        """
+        self.driver.fill((0, 0, 0))
+        for i in range(64):
+            if bitboard & (1 << i):
+                self.driver[i] = self.adjust_brightness(color)
+        self.driver.write()
+
+    def zero_bitboard_squares(self):
+        """
+        Zero the bitboard squares on the LED matrix
+
+        :param bitboard: bitboard
+
+        :return: None
+        """
+        self.driver.fill((0, 0, 0))
+
+    def prepare_bitboard_square(self, bitboard: int, color: tuple = (0, 0, 32)):
+        """
+        Prepare the bitboard squares on the LED matrix
+
+        :param bitboard: bitboard
+        :param color: color of the LED
+
+        :return: None
+        """
+        for i in range(64):
+            if bitboard & (1 << i):
+                self.driver[i] = self.adjust_brightness(color)
+
+    def display_bitboard_squares(self):
+        """
+        Display the bitboard squares on the LED matrix
+
+        :return: None
+        """
         self.driver.write()
 
     def show_interim_move(self, move: str, side: str):
@@ -130,34 +290,34 @@ class ChessboardLED:
         if not castle:
             from_index = chess.algebraic_to_board_index(from_square)
             to_index = chess.algebraic_to_board_index(to_square)
-            self.driver[from_index] = (0, 0, 18)
+            self.driver[from_index] = self.adjust_brightness((0, 0, 18))
             if capture:
-                self.driver[to_index] = (255, 0, 0)
+                self.driver[to_index] = self.adjust_brightness((255, 0, 0))
             elif promotion:
-                self.driver[to_index] = (0, 100, 100)
+                self.driver[to_index] = self.adjust_brightness((0, 100, 100))
             else:
-                self.driver[to_index] = (155, 65, 0)
+                self.driver[to_index] = self.adjust_brightness((155, 65, 0))
         else:
             if castle == "K" and side == "w":
-                self.driver[4] = (0, 0, 18)
-                self.driver[5] = (155, 65, 0)
-                self.driver[6] = (155, 65, 0)
-                self.driver[7] = (0, 0, 18)
+                self.driver[4] = self.adjust_brightness((0, 0, 18))
+                self.driver[5] = self.adjust_brightness((155, 65, 0))
+                self.driver[6] = self.adjust_brightness((155, 65, 0))
+                self.driver[7] = self.adjust_brightness((0, 0, 18))
             elif castle == "Q" and side == "w":
-                self.driver[4] = (0, 0, 18)
-                self.driver[3] = (155, 65, 0)
-                self.driver[2] = (155, 65, 0)
-                self.driver[0] = (0, 0, 18)
+                self.driver[4] = self.adjust_brightness((0, 0, 18))
+                self.driver[3] = self.adjust_brightness((155, 65, 0))
+                self.driver[2] = self.adjust_brightness((155, 65, 0))
+                self.driver[0] = self.adjust_brightness((0, 0, 18))
             elif castle == "K" and side == "b":
-                self.driver[60] = (0, 0, 18)
-                self.driver[61] = (155, 65, 0)
-                self.driver[62] = (155, 65, 0)
-                self.driver[63] = (0, 0, 18)
+                self.driver[60] = self.adjust_brightness((0, 0, 18))
+                self.driver[61] = self.adjust_brightness((155, 65, 0))
+                self.driver[62] = self.adjust_brightness((155, 65, 0))
+                self.driver[63] = self.adjust_brightness((0, 0, 18))
             elif castle == "Q" and side == "b":
-                self.driver[60] = (0, 0, 18)
-                self.driver[59] = (155, 65, 0)
-                self.driver[58] = (155, 65, 0)
-                self.driver[56] = (0, 0, 18)
+                self.driver[60] = self.adjust_brightness((0, 0, 18))
+                self.driver[59] = self.adjust_brightness((155, 65, 0))
+                self.driver[58] = self.adjust_brightness((155, 65, 0))
+                self.driver[56] = self.adjust_brightness((0, 0, 18))
 
         self.driver.write()
 
@@ -177,15 +337,15 @@ class ChessboardLED:
         if board[origin_square] is None:
             return
 
-        side = 'w' if board[origin_square].isupper() else 'b'
+        side = "w" if board[origin_square].isupper() else "b"
         if side != board.turn:
             self.driver.fill((64, 0, 0))
-            self.driver[origin_square] = (0, 0, 64)
+            self.driver[origin_square] = self.adjust_brightness((0, 0, 64))
             self.driver.write()
             return
 
         self.driver.fill((0, 0, 0))
-        self.driver[origin_square] = (0, 0, 64)
+        self.driver[origin_square] = self.adjust_brightness((0, 0, 64))
 
         legal_moves = board.get_legal_moves(origin_square)
         print(legal_moves)
@@ -194,31 +354,31 @@ class ChessboardLED:
             from_square, to_square, capture, promotion, enpassant, castle = chess.parse_move_notation(move)
             if castle:
                 if castle in "Kk":
-                    if side == 'b':
-                        self.driver[61] = (0, 100, 64)
-                        self.driver[62] = (0, 100, 0)
-                        self.driver[63] = (100, 100, 100)
+                    if side == "b":
+                        self.driver[61] = self.adjust_brightness((0, 100, 64))
+                        self.driver[62] = self.adjust_brightness((0, 100, 0))
+                        self.driver[63] = self.adjust_brightness((100, 100, 100))
                     else:
-                        self.driver[5] = (0, 100, 64)
-                        self.driver[6] = (0, 100, 0)
-                        self.driver[7] = (100, 100, 100)
+                        self.driver[5] = self.adjust_brightness((0, 100, 64))
+                        self.driver[6] = self.adjust_brightness((0, 100, 0))
+                        self.driver[7] = self.adjust_brightness((100, 100, 100))
                 elif castle in "Qq":
-                    if side == 'b':
-                        self.driver[59] = (0, 100, 64)
-                        self.driver[58] = (0, 100, 0)
-                        self.driver[56] = (100, 100, 100)
+                    if side == "b":
+                        self.driver[59] = self.adjust_brightness((0, 100, 64))
+                        self.driver[58] = self.adjust_brightness((0, 100, 0))
+                        self.driver[56] = self.adjust_brightness((100, 100, 100))
                     else:
-                        self.driver[3] = (0, 100, 64)
-                        self.driver[2] = (0, 100, 0)
-                        self.driver[0] = (100, 100, 100)
+                        self.driver[3] = self.adjust_brightness((0, 100, 64))
+                        self.driver[2] = self.adjust_brightness((0, 100, 0))
+                        self.driver[0] = self.adjust_brightness((100, 100, 100))
             else:
                 index = chess.algebraic_to_board_index(to_square)
                 if capture:
-                    self.driver[index] = (100, 0, 0)
+                    self.driver[index] = self.adjust_brightness((100, 0, 0))
                 elif promotion:
-                    self.driver[index] = (0, 100, 100)
+                    self.driver[index] = self.adjust_brightness((0, 100, 100))
                 else:
-                    self.driver[index] = (0, 32, 0)
+                    self.driver[index] = self.adjust_brightness((0, 32, 0))
         self.driver.write()
 
     async def wagtag(self, period_ms=100):
@@ -234,6 +394,7 @@ class ChessboardLED:
         self.driver.write()
 
         ticks = 0
+        pixel = 64
 
         while True:
             if ticks % 2 == 0:
@@ -241,13 +402,13 @@ class ChessboardLED:
                 self.driver.write()
                 await uasyncio.sleep_ms(50)
                 for i in range(0, int(pixel / 2)):
-                    self.driver[i] = (0, 0, 64)
+                    self.driver[i] = self.adjust_brightness((0, 0, 64))
             else:
                 self.driver.fill((0, 0, 0))
                 self.driver.write()
                 await uasyncio.sleep_ms(50)
                 for i in range(int(pixel / 2), int(pixel)):
-                    self.driver[i] = (64, 0, 0)
+                    self.driver[i] = self.adjust_brightness((64, 0, 0))
             self.driver.write()
             ticks += 1
             await uasyncio.sleep_ms(period_ms)

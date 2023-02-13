@@ -143,7 +143,7 @@ async def connect_wifi():
     print(wlan.ifconfig())
 
 
-async def console_move_history(move_history, full_move_number, max_lines=13):
+async def console_move_history(move_history, full_move_number, max_lines=13, game_over=False, result="*"):
     global tft
 
     print("in console_move_history")
@@ -168,9 +168,14 @@ async def console_move_history(move_history, full_move_number, max_lines=13):
         if move[1] != "":
             console_buffer += "%d. %s %s" % (move_num + i, move[0], move[1])
         else:
-            console_buffer += "%d. %s ..." % (move_num + i, move[0])
-    if side == "w":
+            if not game_over:
+                console_buffer += "%d. %s ..." % (move_num + i, move[0])
+            else:
+                console_buffer += "%d. %s" % (move_num + i, move[0])
+    if side == "w" and not game_over:
         console_buffer += "\\r%d. ..." % (move_num + i + 1)
+    if game_over:
+        console_buffer += "\\r%s" % result
     print("console buffer: %s" % console_buffer)
     await tft.print_console(console_buffer, page="game_progress", max_lines=max_lines, replace=True)
 
@@ -184,6 +189,7 @@ async def event_listener():
     loop_counter = 0
     is_display_sleeping = False
     prev_board_status = board_status
+    pre_move_board_state = STARTING_POSITION
     prev_ui_state = 0
     ui_state = 0
     curr_pieces = 0
@@ -195,6 +201,9 @@ async def event_listener():
     potential_castle = False
     is_castling = False
     castling_side = None
+    check_flag = False
+    checkmate_flag = False
+    stalemate_flag = False
 
     chessboard.read_board()
     board_status, board = chessboard.get_board()
@@ -213,6 +222,13 @@ async def event_listener():
     in_game_mode = False
     game_mode = MODE_VS_HUMAN
     prev_lux = 0
+    fix_board_flag = False
+    segoe_board = None
+    update_led_board = False
+
+    white_clock.clear()
+    black_clock.clear()
+    game = Chess()
 
     while True:
         if not lock.locked():
@@ -239,23 +255,90 @@ async def event_listener():
             if page == 4 and component == 7:
                 game_mode = MODE_VS_CPU
                 in_game_mode = True
+                await tft.send_command("page start_cpu")
 
             if page == 4 and component == 3:
                 game_mode = MODE_VS_HUMAN
                 in_game_mode = True
-                await tft.send_command("page game_progress")
+                game_in_progress = False
+                show_setup_message = False
+                await tft.send_command("page board_setup")
                 await tft.clear_console(page="game_progress")
-                await tft.print_console("Set up board and press button to begin", page="game_progress")
 
             if page == 4 and component == 5:
                 game_mode = MODE_VS_HUMAN_REMOTE
                 in_game_mode = True
+                await tft.send_command("page start_remote")
 
             # Run RGB LED strip test
             if page == 11 and component == 4:
                 test_mode = 1
                 print("Running RGB LED strip test")
                 await chessboard_led.rgb_test(tft.print_console)
+
+            # Fix board position
+            if page == 7 and component == 6:
+                print("Show Segoe chess board position on Nextion display")
+                fix_board_flag = True
+                black_clock.stop_clock()
+                white_clock.stop_clock()
+                segoe_board = game.get_segoe_chess_board()
+                print("Segoe board: %s" % segoe_board)
+                await tft.set_value("board_preview.board.txt", segoe_board)
+                chessboard.read_board()
+                current_bitboard = chessboard.convert_bitboard_to_int()
+                print("Translated bitboard: {}".format(current_bitboard))
+                in_position_state = current_bitboard & pre_move_board_state
+                out_position_state = ~current_bitboard & pre_move_board_state
+                chessboard_led.zero_bitboard_squares()
+                chessboard_led.prepare_bitboard_square(in_position_state, (0, 48, 0))
+                chessboard_led.prepare_bitboard_square(out_position_state, (58, 0, 0))
+                chessboard_led.display_bitboard_squares()
+
+            # Fix board position completed
+            if page == 14 and component == 5:
+                print("Fix board position completed")
+                fix_board_flag = False
+                print("Before fen parse")
+                chessboard.print_board()
+                chessboard.parse_fen(game.get_fen())
+                print("After fen parse")
+                chessboard.print_board()
+                chessboard.read_board()
+                board_status, board = chessboard.get_board()
+                num_pieces = chessboard.count_pieces(board_status)
+                print("Board status: %s" % board_status)
+                prev_board_status = board_status
+                move_notation = None
+                original_position = None
+                piece_removed = False
+                capture_flag = False
+                board_state_piece_lifted = 0
+                board_state_capturing_piece = 0
+                board_state_captured_piece = 0
+                curr_pieces = num_pieces
+                chessboard.print_board()
+                chessboard_led.clear_board()
+                chessboard_led.show_occupied_squares(chessboard)
+                position_changed_flag = False
+                potential_castle = False
+                is_castling = False
+                if game.turn == "w":
+                    white_clock.start_clock()
+                    black_clock.stop_clock()
+                else:
+                    white_clock.stop_clock()
+                    black_clock.start_clock()
+
+            # Start New Game - Same Game Mode
+            if (page == 18 and component == 8) or (page == 7 and component == 10):
+                print("Start new game")
+                game = Chess()
+                in_game_mode = True
+                show_setup_message = False
+                game_in_progress = False
+                await tft.send_command("page board_setup")
+                await tft.clear_console(page="game_progress")
 
             # Run OLED test
             if page == 11 and component == 5:
@@ -293,7 +376,7 @@ async def event_listener():
                 lvl = light_sensor.lux_calc()
                 await tft.clear_console()
                 await tft.print_console("Shine bright light on the sensor")
-                while lvl < 32000:
+                while lvl < 20000:
                     lvl = light_sensor.lux_calc()
                     await uasyncio.sleep_ms(100)
                 await tft.print_console("\\rLuminosity: %s" % lvl)
@@ -302,7 +385,9 @@ async def event_listener():
                     lvl = light_sensor.lux_calc()
                     await uasyncio.sleep_ms(100)
                 await tft.print_console("\\rLuminosity: %s" % lvl)
-                await tft.print_console("\\rContinous luminosity measurement until\\ryou return to the previous screen.")
+                await tft.print_console(
+                    "\\rContinous luminosity measurement until\\ryou return to the previous screen."
+                )
                 prev_lux = lvl
 
             # Stop test mode
@@ -356,14 +441,26 @@ async def event_listener():
         elif test_mode == 4:  # Hall Effect Sensor Test
             pass
 
-        if in_game_mode:
+        if in_game_mode and fix_board_flag and io_expander_interrupt_flag:
+            io_expander_interrupt_flag = False
+            chessboard.read_board()
+            current_bitboard = chessboard.convert_bitboard_to_int()
+            print("Translated bitboard: {}".format(current_bitboard))
+            in_position_state = current_bitboard & pre_move_board_state
+            out_position_state = ~current_bitboard & pre_move_board_state
+            chessboard_led.zero_bitboard_squares()
+            chessboard_led.prepare_bitboard_square(in_position_state, (0, 48, 0))
+            chessboard_led.prepare_bitboard_square(out_position_state, (58, 0, 0))
+            chessboard_led.display_bitboard_squares()
+
+        if in_game_mode and not fix_board_flag:
             if not game_in_progress and not show_setup_message:
                 print("Set up the playing pieces on the board")
                 show_setup_message = True
-                white_clock.display_text("Set up the board", 0, 0)
-                white_clock.display_text("starting position.", 0, 10, clear=False)
+                white_clock.display_text("Board Setup", 0, 5)
                 prev_board_status, board = chessboard.get_board()
                 chessboard_led.show_setup_squares(chessboard)
+                io_expander_interrupt_flag = True
                 while True:
                     if io_expander_interrupt_flag:
                         io_expander_interrupt_flag = False
@@ -372,6 +469,7 @@ async def event_listener():
                         if board_status != prev_board_status:
                             chessboard_led.show_setup_squares(chessboard)
                         if board_status == STARTING_POSITION:
+                            chessboard_led.clear_board()
                             break
                     await uasyncio.sleep_ms(100)
                 white_clock.display_text("Ready to start.", 0, 0)
@@ -379,6 +477,7 @@ async def event_listener():
                 white_clock.display_text("to start game.", 0, 20, clear=False)
                 prev_board_status = board_status
                 simulated_board_status = board_status
+                await tft.send_command("page game_progress")
                 await tft.clear_console(page="game_progress")
                 await tft.print_console("1. ...", page="game_progress")
 
@@ -410,7 +509,8 @@ async def event_listener():
                     chessboard.print_board()
                     if not button_white.value() and button_black.value():
                         game_in_progress = True
-                        game = Chess()
+                        game.reset_board()
+                        update_led_board = True
                         print("turn: {}".format(game.turn))
                         white_clock.set_clock(900)
                         white_clock.start_clock()
@@ -420,10 +520,18 @@ async def event_listener():
                         print("White button pressed")
                         if game.check_move(move_notation, side="w"):
                             print("Valid move")
-                            chessboard_led.show_occupied_squares(chessboard)
+                            chessboard_led.clear_board()
                             game.make_move(move_notation, side="w")
+                            update_led_board = True
                             white_clock.stop_clock()
-                            await console_move_history(game.get_move_history(), game.fullmove, max_lines=12)
+                            pre_move_board_state = chessboard.convert_bitboard_to_int()
+                            await console_move_history(
+                                game.get_move_history(),
+                                game.fullmove,
+                                max_lines=16,
+                                game_over=game.game_over_flag,
+                                result=game.result,
+                            )
                             black_clock.start_clock()
                         else:
                             print("Invalid move")
@@ -434,10 +542,18 @@ async def event_listener():
                         print("Black button pressed")
                         if game.check_move(move_notation, side="b"):
                             print("Valid move")
-                            chessboard_led.show_occupied_squares(chessboard)
+                            chessboard_led.clear_board()
                             game.make_move(move_notation, side="b")
+                            update_led_board = True
                             black_clock.stop_clock()
-                            await console_move_history(game.get_move_history(), game.fullmove, max_lines=12)
+                            pre_move_board_state = chessboard.convert_bitboard_to_int()
+                            await console_move_history(
+                                game.get_move_history(),
+                                game.fullmove,
+                                max_lines=16,
+                                game_over=game.game_over_flag,
+                                result=game.result,
+                            )
                             white_clock.start_clock()
                         else:
                             print("Invalid move")
@@ -591,13 +707,44 @@ async def event_listener():
                         is_castling = False
             loop_counter += 1
             if game_in_progress:
-                white_clock.update_clock()
-                black_clock.update_clock()
+                if game.checkmate_flag:
+                    print("Checkmate detected")
+                    await tft.send_command("page game_ended")
+                    await tft.set_value("t2.txt", "Checkmate")
+                    winner = "White" if game.turn == "b" else "Black"
+                    await tft.set_value("t3.txt", "%s Wins" % winner)
+                    chessboard_led.show_checkmate(game.turn)
+                    game_in_progress = False
+                    checkmate_flag = False
+                    game_over_flag = True
+                elif game.stalemate_flag:
+                    print("Stalemate detected")
+                    await tft.send_command("page game_ended")
+                    await tft.set_value("t2.txt", "Stalemate")
+                    await tft.set_value("t3.txt", "Game Ends in Draw")
+                    chessboard_led.show_stalemate()
+                    game_in_progress = False
+                    stalemate_flag = False
+                    game_over_flag = True
+                else:
+                    if update_led_board:
+                        chessboard_led.show_occupied_squares(chessboard)
+                        update_led_board = False
+                    white_clock.update_clock()
+                    black_clock.update_clock()
 
             # If button 0 is pressed, drop to REPL
             if repl_button.value() == 0:
                 print("Dropping to REPL")
                 sys.exit()
+
+        # Update luminosity
+        lvl = light_sensor.lux_calc()
+        min_lvl = prev_lux / 1.05
+        max_lvl = prev_lux * 1.05
+        if lvl >= max_lvl or lvl <= min_lvl:
+            chessboard_led.set_lux(lvl)
+        prev_lux = lvl
 
         await uasyncio.sleep_ms(100)
 
@@ -683,19 +830,20 @@ async def main():
     chessboard.read_board()
     board_status, board = chessboard.get_board()
 
+    # Set up ambient light sensor
+    light_sensor = AmbientLightSensor(i2c)
+    lux_value = light_sensor.lux_calc()
+    print("Current ambient lumiosity level: %d" % lux_value)
+
     # Set up Chessboard LED strip
     print("Setting up LED strip")
     chessboard_led = ChessboardLED(led_io=led_strip, vls_io=vls_enable)
+    chessboard_led.set_lux(lux_value)
     print("LED strip setup complete")
     print("LED clear")
     chessboard_led.clear_board()
     print("LED show occupied squares")
     chessboard_led.show_occupied_squares(chessboard)
-
-    # Set up ambient light sensor
-    light_sensor = AmbientLightSensor(i2c)
-    lux_value = light_sensor.lux_calc()
-    print("Current ambient lumiosity level: %d" % lux_value)
 
     # Set up interrupters
     io_interrupt.irq(trigger=machine.Pin.IRQ_FALLING, handler=io_expander_callback)

@@ -241,6 +241,26 @@ class Chessboard:
         print()
         print("  ---------------------------------")
 
+    def convert_bitboard_to_int(self, bitboard: list = None) -> int:
+        """
+        Convert a bitboard to an integer
+
+        :param bitboard: Bitboard
+
+        :return: Integer
+        """
+        bitboard_int = 0
+
+        if bitboard is None:
+            bitboard = self.bitboard
+
+        for i in range(63, -1, -1):
+            bitboard_int <<= 1
+            if bitboard[i]:
+                bitboard_int |= 1
+
+        return bitboard_int
+
     def get_board(self):
         """
         Return the board state and piece positions
@@ -273,7 +293,7 @@ class Chessboard:
         self.board[start] = " "
         self.board[end] = piece
 
-    def update_castling_move(self,color: str, side: str):
+    def update_castling_move(self, color: str, side: str):
         """
         Update the board state with a castling move
 
