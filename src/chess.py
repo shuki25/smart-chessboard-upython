@@ -67,6 +67,28 @@ PROMOTED_PIECES = ["N", "B", "R", "Q"]
 MOVE_NOTATION_REGEX = r"([a-h][1-8])?([-x])?([a-h][1-8])(=?[NBRQnbrq])?(e\.p\.)?"
 DEBUG = 0  # 0 = no debug, 1 = debug, 2 = verbose debug
 
+SEGOE_CHESS_FONT_PIECES_LIGHT = {
+    "P": 0x70,
+    "N": 0x6E,
+    "B": 0x62,
+    "R": 0x72,
+    "Q": 0x71,
+    "K": 0x6B,
+    "p": 0x6F,
+    "n": 0x6D,
+    "b": 0x76,
+    "r": 0x74,
+    "q": 0x77,
+    "k": 0x6C,
+}
+SEGOE_CHESS_FONT_PIECES_DARK_OFFSET = 0x20
+SEGOE_CHESS_FONT_RANK = [0xE0, 0xE1, 0xE2, 0xE3, 0xE4, 0xE5, 0xE6, 0xE7]
+SEGOE_CHESS_FONT_FILE = [0xE8, 0xE9, 0xEA, 0xEB, 0xEC, 0xED, 0xEE, 0xEF]
+SEGOE_CHESS_FONT_CORNER = 0x44
+SEGOE_CHESS_FONT_EMPTY = [0x20, 0x2B]
+SEGOE_CHESS_FONT_DOT = [0x2E, 0x3A]
+SEGOE_CHESS_FONT_X = [0x78, 0x58]
+
 
 def move_notation(
     from_square: int,
@@ -245,6 +267,45 @@ def debug(message: str, level: int = 1):
         print(message)
 
 
+def get_square_color(square: int) -> int:
+    """
+    Get the color of a square on the chessboard
+
+    :param square: Square number
+
+    :return: 0 for "light" or 1 for "dark"
+    """
+    if square < 0 or square > 63:
+        raise Exception("square must be between 0 and 63")
+    return (square // 8 + square % 8) % 2
+
+
+def parse_fen(fen: str) -> list:
+    """
+    Parse a FEN string into a list representing board positions
+
+    :param fen: the FEN string to parse
+
+    :return: list representing board positions
+    """
+    board = list(" " * 64)
+    fen = fen.split()
+
+    i = 8
+    for rank in fen[0].split("/"):
+        j = 0
+        for char in rank:
+            if char.isdigit():
+                j += int(char)
+            else:
+                board_index = (i - 1) * 8 + j
+                board[board_index] = char
+                j += 1
+        i -= 1
+
+    return board
+
+
 class Chess:
     board: list = list(" " * 64)
     turn: str = "w"
@@ -253,6 +314,12 @@ class Chess:
     halfmove: int = 0
     fullmove: int = 1
     history: list = []
+    result: str = "*"  # "*" for game in progress, "1-0" for white win, "0-1" for black win, "1/2-1/2" for draw
+    checkmate_flag: bool = False
+    stalemate_flag: bool = False
+    insufficient_material_flag: bool = False
+    check_flag: bool = False
+    game_over_flag: bool = False
 
     def __init__(self, fen: str = None):
         """
@@ -296,6 +363,15 @@ class Chess:
         """
         self.board[index] = value
 
+    def reset_board(self):
+        """
+        Reset the board to the starting position.
+
+        :return: None
+        """
+        self.set_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+        self.history = []
+
     def set_fen(self, fen: str):
         """
         Set the game state according to the given FEN string.
@@ -311,6 +387,11 @@ class Chess:
         self.enpassant = fen[3]
         self.halfmove = int(fen[4])
         self.fullmove = int(fen[5])
+        self.check_flag = False
+        self.checkmate_flag = False
+        self.stalemate_flag = False
+        self.insufficient_material_flag = False
+        self.game_over_flag = False
 
         i = 8
         for rank in fen[0].split("/"):
@@ -349,6 +430,25 @@ class Chess:
         fen += " " + str(self.halfmove) + " " + str(self.fullmove)
         return fen
 
+    def get_pgn(self, moves: list = None, result: str = "*"):
+        """
+        Return the PGN string representing the current game state.
+
+        :param moves: list of moves to include in the PGN string
+        :param result: result of the game
+
+        :return: the PGN string representing the current game state
+        """
+        if moves is None:
+            moves = self.history
+        pgn = '[Event "?"]\n[Site "?"]\n[Date "?"]\n[Round "?"]\n[White "?"]\n[Black "?"]\n'
+        pgn += '[Result "{}"]\n\n'.format(result)
+        for i in range(len(moves)):
+            pgn += str(i + 1) + ". " + str(moves[i][0]) + " " + str(moves[i][1]) + " "
+            pgn += moves[i] + " "
+        pgn += result
+        return pgn
+
     def get_board(self, board: list = None):
         """
         Return the board.
@@ -367,6 +467,43 @@ class Chess:
             s += "  +---------------+\n"
             s += "   a b c d e f g h"
             return s
+
+    def get_segoe_chess_board(self, fen=None) -> str:
+        """
+        Print the chessboard with Segoe chess font
+
+        :param fen: FEN string to print
+
+        :return: String of chessboard using Segoe chess font
+        """
+
+        segoe_chess_board = ""
+
+        if fen is None:
+            working_board = self.board.copy()
+        else:
+            working_board = parse_fen(fen)
+
+        for i in range(8, 0, -1):
+            if i < 8:
+                segoe_chess_board += "\\r"
+            segoe_chess_board += chr(SEGOE_CHESS_FONT_RANK[i - 1])
+            for j in range(8):
+                square = (i - 1) * 8 + j
+                square_color = get_square_color(square)
+                if working_board[square] == " ":
+                    segoe_chess_board += chr(SEGOE_CHESS_FONT_EMPTY[square_color])
+                else:
+                    piece = SEGOE_CHESS_FONT_PIECES_LIGHT[working_board[square]]
+                    if square_color == 1:
+                        piece -= SEGOE_CHESS_FONT_PIECES_DARK_OFFSET
+                    segoe_chess_board += chr(piece)
+        segoe_chess_board += "\\r"
+        segoe_chess_board += chr(SEGOE_CHESS_FONT_CORNER)
+        for i in range(8):
+            segoe_chess_board += chr(SEGOE_CHESS_FONT_FILE[i])
+
+        return segoe_chess_board
 
     def identify_piece(self, coord: str):
         """
@@ -411,12 +548,37 @@ class Chess:
 
         :return: None
         """
-        if self.turn == "w":
-            self.history.append((move, ''))
-        else:
-            self.history[-1] = (self.history[-1][0], move)
+        next_turn = "b" if self.turn == "w" else "w"
 
-        self.turn = "b" if self.turn == "w" else "w"
+        self.check_flag = False
+        self.checkmate_flag = False
+        self.stalemate_flag = False
+        self.game_over_flag = False
+
+        if self.is_check(next_turn):
+            self.check_flag = True
+            if self.is_checkmate(next_turn):
+                self.checkmate_flag = True
+                self.result = "1-0" if next_turn == "b" else "0-1"
+                move += "#"
+                self.game_over_flag = True
+            else:
+                move += "+"
+        elif self.is_stalemate(next_turn):
+            self.stalemate_flag = True
+            self.result = "1/2-1/2"
+            move += "="
+            self.game_over_flag = True
+
+        if self.turn == "w":
+            self.history.append((move, ""))
+        else:
+            if len(self.history) == 0:
+                self.history.append(("", move))
+            else:
+                self.history[-1] = (self.history[-1][0], move)
+
+        self.turn = next_turn
 
         if self.turn == "w":
             self.fullmove += 1
@@ -436,6 +598,10 @@ class Chess:
                     self.enpassant = "-"
             else:
                 self.halfmove += 1
+
+        print("check_flag: {}".format(self.check_flag))
+        print("checkmate_flag: {}".format(self.checkmate_flag))
+        print("stalemate_flag: {}".format(self.stalemate_flag))
 
     def get_move_history(self, num_moves: int = 0):
         """
@@ -801,11 +967,12 @@ class Chess:
 
         return False
 
-    def all_legal_moves(self, color: str):
+    def all_legal_moves(self, color: str, shortcut=False) -> list:
         """
         Return a list of all legal moves for the given color.
 
         :param color: the color to generate legal moves for
+        :param shortcut: if True, return as soon as a legal move is found
 
         :return: a list of legal moves for the given color
         """
@@ -815,6 +982,10 @@ class Chess:
                 moves += self.generate_moves(i)
             elif self.board[i].islower() and color == "b":
                 moves += self.generate_moves(i)
+            if shortcut and len(moves) > 0:
+                moves = self.remove_illegal_moves(moves)
+                if len(moves) > 0:
+                    return moves
         moves = self.remove_illegal_moves(moves)
         return moves
 
@@ -1356,5 +1527,6 @@ class Chess:
         if self.is_check(side):
             return False
 
-        moves = self.all_legal_moves(side)
+        moves = self.all_legal_moves(side, shortcut=True)
+        debug("moves: {}".format(moves))
         return len(moves) == 0
