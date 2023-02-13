@@ -3,6 +3,7 @@ import struct
 import machine
 import uasyncio
 import ubinascii
+import struct
 
 from primitives.queue import Queue
 
@@ -47,6 +48,22 @@ PACKET_LENGTH_MAP = {
 # Nextion Console
 CONSOLE_BUFFER_SIZE = 512
 CONSOLE_MAX_LINES = 11
+
+
+def rawbytes(s):
+    """Convert a string to raw bytes without encoding"""
+    outlist = []
+    for cp in s:
+        num = ord(cp)
+        if num < 255:
+            outlist.append(struct.pack("B", num))
+        elif num < 65535:
+            outlist.append(struct.pack(">H", num))
+        else:
+            b = (num & 0xFF0000) >> 16
+            H = num & 0xFFFF
+            outlist.append(struct.pack(">bH", b, H))
+    return b"".join(outlist)
 
 
 class Nextion:
@@ -175,7 +192,7 @@ class Nextion:
                 value = struct.unpack("i", raw)[0]
             elif typ == STRING:
                 print("got string response")
-                value = raw.decode("utf-8")
+                value = raw.decode("iso-8859-1")
             elif typ == PAGE:
                 print("got page response")
                 value = raw[1]
@@ -188,7 +205,7 @@ class Nextion:
     async def set_value(self, key, value):
         print("value type: %s" % type(value))
         if isinstance(value, str):
-            out_value = '"%s"' % value
+            out_value = bytearray(b'"' + rawbytes(value) + b'"')
         elif isinstance(value, float):
             print("Float is not supported. Converting to string")
             out_value = '"%s"' % str(value)
@@ -197,7 +214,7 @@ class Nextion:
         else:
             raise AssertionError('value type "%s" is not supported for set' % type(value).__name__)
 
-        prepare_command = b"%s=%s" % (key, out_value) + EOL
+        prepare_command = bytearray(key.encode("iso-8859-1") + b"=") + out_value + EOL
         await self.lock.acquire()
         await self.flush_buffer()
         self.uart.write(prepare_command)
