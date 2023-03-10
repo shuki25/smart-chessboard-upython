@@ -108,6 +108,10 @@ class Nextion:
         variable_name = "%s.console.txt" % page
         await self.set_value(variable_name, "")
 
+    async def clear_analysis(self, page="test_monitor"):
+        variable_name = "%s.analysis.txt" % page
+        await self.set_value(variable_name, "")
+
     async def print_console(
         self,
         s,
@@ -115,6 +119,7 @@ class Nextion:
         max_lines=CONSOLE_MAX_LINES,
         buffer_size=CONSOLE_BUFFER_SIZE,
         page="test_monitor",
+        txt_name="console",
         replace=False,
     ):
         if clear:
@@ -142,7 +147,7 @@ class Nextion:
             console_buffer = console_buffer[-buffer_size:]
 
         print("Printing to console: %s" % s)
-        variable_name = "%s.console.txt" % page
+        variable_name = "%s.%s.txt" % (page, txt_name)
         await self.set_value(variable_name, console_buffer)
 
     async def send_command(self, command):
