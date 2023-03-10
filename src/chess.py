@@ -178,8 +178,8 @@ def parse_move_notation(chess_move: str) -> tuple:
     """
     valid = 1
     debug("validating notation: {}".format(chess_move), 2)
-    if chess_move in ["O-O", "O-O-O"]:
-        castle = "K" if chess_move == "O-O" else "Q"
+    if chess_move in ["O-O", "O-O-O", "e1g1", "e8g8", "e1c1", "e8c8", "e1-g1", "e8-g8", "e1-c1", "e8-c8"]:
+        castle = "K" if chess_move in ["O-O", "e1g1", "e8g8", "e1-g1", "e8-g8"] else "Q"
         return "O", "O", False, None, False, castle
 
     regex = ure.compile(MOVE_NOTATION_REGEX)
@@ -802,17 +802,26 @@ class Chess:
         if not validate_notation(move):
             return False
 
-        if move not in ["O-O", "O-O-O"]:
-            from_square = algebraic_to_board_index(move[:2])
+        move_from, move_to, capture, promotion, enpassant, castle = parse_move_notation(move)
+        if castle:
+            move_formatted = "O-O" if castle == "K" else "O-O-O"
+        else:
+            if capture:
+                move_formatted = move_from + "x" + move_to
+            else:
+                move_formatted = move_from + "-" + move_to
+
+        if move_formatted not in ["O-O", "O-O-O"]:
+            from_square = algebraic_to_board_index(move_from)
             if (self.board[from_square].isupper() and side != "w") or (
                 self.board[from_square].islower() and side != "b"
             ):
                 return False
 
-        if self.is_enpassant(move):
+        if self.is_enpassant(move_formatted):
             debug("move is enpassant")
-            from_square = algebraic_to_board_index(move[0:2])
-            to_square = algebraic_to_board_index(move[3:5])
+            from_square = algebraic_to_board_index(move_from)
+            to_square = algebraic_to_board_index(move_to)
             self.board[from_square] = " "
             self.board[to_square] = "P" if side == "w" else "p"
             captured_square = (
@@ -822,33 +831,33 @@ class Chess:
             )
             self.board[captured_square] = " "
             self.enpassant = "-"
-            self.update_turn(move)
+            self.update_turn(move_formatted)
             debug("enpassant move is complete")
             return True
 
-        if self.is_promotion(move):
+        if self.is_promotion(move_formatted):
             debug("move is promotion")
             self.perform_promotion(move)
             self.enpassant = "-"
             self.update_turn(move, promoted=True)
             return True
 
-        if self.check_move(move, side):
+        if self.check_move(move_formatted, side):
             debug("move is valid")
             if move != "O-O" and move != "O-O-O":
                 debug("move is not castling")
-                from_square = algebraic_to_board_index(move[:2])
-                to_square = algebraic_to_board_index(move[3:5])
+                from_square = algebraic_to_board_index(move_from)
+                to_square = algebraic_to_board_index(move_to)
                 self.board[to_square] = self.board[from_square]
                 self.board[from_square] = " "
                 self.enpassant = "-"
-                self.update_turn(move)
+                self.update_turn(move_formatted)
                 debug("move is complete")
                 return True
             else:
-                self.perform_castle(move)
+                self.perform_castle(move_formatted)
                 self.enpassant = "-"
-                self.update_turn(move)
+                self.update_turn(move_formatted)
                 debug("castling complete")
                 return True
         debug("move is invalid, move not made")

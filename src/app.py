@@ -17,7 +17,12 @@ from chess_clock import ChessClock
 from chessboard_led import ChessboardLED
 from micropython import const
 from als import AmbientLightSensor
+from uci import UCI, parse_info
 
+
+# Stockfish UCI engine Constants
+STOCKFISH_SERVER = "192.168.2.19"
+STOCKFISH_PORT = 9999
 
 # Constants
 IO_EXPANDER_0_ADDRESS = 0x20
@@ -143,7 +148,9 @@ async def connect_wifi():
     print(wlan.ifconfig())
 
 
-async def console_move_history(move_history, full_move_number, max_lines=13, game_over=False, result="*"):
+async def console_move_history(
+    move_history, full_move_number, max_lines=13, game_over=False, result="*", page="game_progress"
+):
     global tft
 
     print("in console_move_history")
@@ -177,7 +184,7 @@ async def console_move_history(move_history, full_move_number, max_lines=13, gam
     if game_over:
         console_buffer += "\\r%s" % result
     print("console buffer: %s" % console_buffer)
-    await tft.print_console(console_buffer, page="game_progress", max_lines=max_lines, replace=True)
+    await tft.print_console(console_buffer, page=page, max_lines=max_lines, replace=True)
 
 
 async def event_listener():
@@ -204,6 +211,14 @@ async def event_listener():
     check_flag = False
     checkmate_flag = False
     stalemate_flag = False
+    opponent_move = False
+    console_tag = "game_progress"
+    cpu_2p_remote_mode = False
+    cpu_2p_remote_side = None
+    cpu_level = 3
+    uci_player = None
+    uci_player_wait_flag = False
+    cpu_2p_remote_has_moved = True
 
     chessboard.read_board()
     board_status, board = chessboard.get_board()
@@ -251,12 +266,29 @@ async def event_listener():
             (page, component, touch) = data
             print("Touch event: Page %s, Component %s, Touch %s" % data)
 
-            # Start game
-            if page == 4 and component == 7:
+            # Start game vs CPU
+            if (page == 16 and component == 2) or (page == 16 and component == 15):
                 game_mode = MODE_VS_CPU
                 in_game_mode = True
-                await tft.send_command("page start_cpu")
+                game_in_progress = False
+                show_setup_message = False
+                cpu_2p_remote_mode = True
+                uci_player_wait_flag = False
+                cpu_2p_remote_has_moved = True
+                print("CPU 2P remote mode: %s" % cpu_2p_remote_mode)
+                cpu_2p_remote_side = "w" if component == 15 else "b"
+                cpu_level = await tft.get_value("start_cpu.level.val")
+                print("CPU level: %s" % cpu_level)
+                await tft.send_command("page board_setup")
+                await tft.clear_console(page="gm_progress_c")
+                if uci_player is None:
+                    uci_player = UCI(STOCKFISH_SERVER, STOCKFISH_PORT)
+                    await uci_player.start()
+                else:
+                    await uci_player.stop()
+                    await uci_player.start()
 
+            # Start game vs human
             if page == 4 and component == 3:
                 game_mode = MODE_VS_HUMAN
                 in_game_mode = True
@@ -265,6 +297,7 @@ async def event_listener():
                 await tft.send_command("page board_setup")
                 await tft.clear_console(page="game_progress")
 
+            # Start game vs human remote
             if page == 4 and component == 5:
                 game_mode = MODE_VS_HUMAN_REMOTE
                 in_game_mode = True
@@ -277,7 +310,7 @@ async def event_listener():
                 await chessboard_led.rgb_test(tft.print_console)
 
             # Fix board position
-            if page == 7 and component == 6:
+            if page in [5, 6, 7] and component == 6:
                 print("Show Segoe chess board position on Nextion display")
                 fix_board_flag = True
                 black_clock.stop_clock()
@@ -396,12 +429,6 @@ async def event_listener():
                 white_clock.clear()
                 black_clock.clear()
 
-            # Manual feed button pressed
-            if page == 1 and component == 12:
-                await dispense_food(4)
-                await tft.send_command("page page1")
-                await uasyncio.sleep(3)
-
         if event == nextion.TOUCH_IN_SLEEP:
             (page, component, touch) = data
             print("Touch in sleep event: Page %s, Component %s, Touch %s" % data)
@@ -477,9 +504,54 @@ async def event_listener():
                 white_clock.display_text("to start game.", 0, 20, clear=False)
                 prev_board_status = board_status
                 simulated_board_status = board_status
-                await tft.send_command("page game_progress")
-                await tft.clear_console(page="game_progress")
-                await tft.print_console("1. ...", page="game_progress")
+                if game_mode == MODE_VS_HUMAN:
+                    await tft.send_command("page game_progress")
+                    await tft.clear_console(page="game_progress")
+                    await tft.print_console("1. ...", page="game_progress")
+                    console_tag = "game_progress"
+                elif game_mode == MODE_VS_CPU:
+                    await tft.send_command("page gm_progress_c")
+                    await tft.clear_console(page="gm_progress_c")
+                    await tft.print_console("1. ...", page="gm_progress_c")
+                    await tft.clear_analysis(page="gm_progress_c")
+                    console_tag = "gm_progress_c"
+                elif game_mode == MODE_VS_HUMAN_REMOTE:
+                    await tft.send_command("page gm_progress_r")
+                    await tft.clear_console(page="gm_progress_r")
+                    await tft.print_console("1. ...", page="gm_progress_r")
+                    await tft.clear_analysis(page="gm_progress_r")
+                    console_tag = "gm_progress_r"
+
+            # Game in progress Logic starts here
+
+            if game_in_progress and game_mode == MODE_VS_CPU:
+                if game.turn == cpu_2p_remote_side and not uci_player_wait_flag:
+                    fen = game.get_fen()
+                    uci_player.go(fen, 15, 3000)
+                    uci_player_wait_flag = True
+                    cpu_2p_remote_has_moved = False
+                    await tft.print_console(
+                        "Thinking...", max_lines=9, page="gm_progress_c", txt_name="analysis", replace=True
+                    )
+                if game.turn == cpu_2p_remote_side and uci_player_wait_flag and not cpu_2p_remote_has_moved:
+                    response = await uci_player.engine_response(["info", "bestmove"])
+                    if response.startswith("bestmove"):
+                        cpu_2p_remote_has_moved = True
+                        uci_move = response.split(" ")[1]
+                        print("CPU move: {}".format(uci_move))
+                        chessboard_led.show_interim_move(uci_move, cpu_2p_remote_side)
+                    else:
+                        try:
+                            info = parse_info(response)
+                            if "depth" in info:
+                                analysis = "Depth: %s Score: %s\\r%s\\r" % (info["depth"], info["score"], info["pv"])
+                                await tft.print_console(analysis, max_lines=9, page="gm_progress_c", txt_name="analysis")
+                        except ValueError:
+                            pass
+                if game.turn == cpu_2p_remote_side and uci_player_wait_flag and cpu_2p_remote_has_moved:
+                    pass
+
+            # Handle button interrupts
 
             if button_interrupt_flag:
                 button_interrupt_flag = False
@@ -525,12 +597,17 @@ async def event_listener():
                             update_led_board = True
                             white_clock.stop_clock()
                             pre_move_board_state = chessboard.convert_bitboard_to_int()
+                            if game_mode == MODE_VS_CPU:
+                                if game.turn == cpu_2p_remote_side:
+                                    uci_player_wait_flag = False
+                                    cpu_2p_remote_has_moved = False
                             await console_move_history(
                                 game.get_move_history(),
                                 game.fullmove,
                                 max_lines=16,
                                 game_over=game.game_over_flag,
                                 result=game.result,
+                                page=console_tag,
                             )
                             black_clock.start_clock()
                         else:
@@ -547,12 +624,17 @@ async def event_listener():
                             update_led_board = True
                             black_clock.stop_clock()
                             pre_move_board_state = chessboard.convert_bitboard_to_int()
+                            if game_mode == MODE_VS_CPU:
+                                if game.turn == cpu_2p_remote_side:
+                                    uci_player_wait_flag = False
+                                    cpu_2p_remote_has_moved = False
                             await console_move_history(
                                 game.get_move_history(),
                                 game.fullmove,
                                 max_lines=16,
                                 game_over=game.game_over_flag,
                                 result=game.result,
+                                page=console_tag,
                             )
                             white_clock.start_clock()
                         else:
@@ -760,7 +842,7 @@ async def initialize():
     if buffer is not None:
         print("buffer: %s" % ubinascii.hexlify(buffer))
     await tft.send_command("bkcmd=3")
-    await tft.set_value("splash.wifi_status.val", wifi_connected)
+    await tft.set_value("splash.wifi_status.val", 1 if wifi_connected else 0)
     await uasyncio.sleep(2)
     await tft.send_command("page main_menu")
 
@@ -823,7 +905,7 @@ async def main():
     black_clock.display_text("Please wait...", y=12)
 
     # Set up Wi-Fi connection
-    # await uasyncio.create_task(connect_wifi())
+    await uasyncio.create_task(connect_wifi())
 
     # Set up chessboard
     chessboard = Chessboard(i2c, chessboard_gpio_addr, led_strip)
