@@ -33,8 +33,8 @@ pip install -r requirements.txt
 
 ## Installing Micropython on ESP32
 
-- Download the latest version of nightly builds Micropython firmware (fixes a particular bug that the chess program depends on) from [here](https://micropython.org/download/esp32/).
-- Download the latest version of esptool from [here](https://github.com/espressif/esptool)
+- Download the latest version of nightly builds Micropython firmware (fixes a particular bug that the chess program depends on) from [here](https://micropython.org/download/esp32spiram/). The controller board is an ESP32-ROVER-E with SPIRAM for additional memory to run the chess program. So the firmware to download would be a file that resembles the following filename from the nightly builds download repository: `esp32spiram-YYYYMMDD-unstable-v1.19.1-xxx-xxxxxxxxx.bin`.
+- Download the latest version of esptool from [here](https://github.com/espressif/esptool). This tool will flash the MicroPython firmware to the ESP32 chip. `esptool.py` is part of `requirements.txt` and should already been installed if you followed the instructions above.
 
 Program your board using the esptool.py program, found here.
 
@@ -50,10 +50,21 @@ esptool.py --chip esp32 --port /dev/cu.usbserial-0001 --baud 460800 write_flash 
 ```
 
 ## Bytecode compilation
-Due to large size of the chess program, it is necessary to compile them into bytecode and stored in the `bytecode-complied` folder. The repository includes bytecode compiled scripts to be uploaded to micropython.  If you are modifying some of the scripts, you would need to re-compile the scripts by running a script in the `src` folder.  The script will compile all the scripts in the `src` folder and store them in the `bytecode-complied` folder.  The script is `compile-project`.  To run the script, run the following command:
+Due to large size of the chess program, it is necessary to compile them into bytecode and stored in the `bytecode-complied` folder. The repository includes bytecode compiled scripts to be uploaded to micropython.  If you are modifying some of the scripts, you would need to re-compile the scripts by running a script in the `src` folder.  The script will compile all the scripts in the `src` folder and store them in the `bytecode-complied` folder.  The script is `compile-project`.  To run the script, run the following command (MacOS or Linux) in the top level directory of the repository:
 ```bash
 cd src
 ./compile-project
+```
+or run the following command on Windows:
+```powershell
+cd src
+./compile-project.ps1
+```
+
+## Running unit tests
+The repository includes unit tests for the chess program to ensure the validity of the game rules and logic.  The unit tests are written using the `pytest` module.  To run the unit tests, run the following command in the top level directory of the repository:
+```bash
+python -m pytest -v
 ```
 
 ## Installing this project
@@ -62,7 +73,7 @@ cd src
 - Install Thonny IDE
 - Copy the files in the `bytecode-compiled` folder to the ESP32 board
 - Connect your ESP32 to WiFi to be able to install the dependencies
-- Install dependecies using `mip` after dropping into the `micropython` interactive shell (REPL)
+- Install dependencies using `mip` after dropping into the `micropython` interactive shell (REPL)
 
 ```ipython
 >>> import network
