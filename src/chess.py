@@ -963,8 +963,11 @@ class Chess:
         :param side: side to move
         :return: True if move is valid, False otherwise
         """
-        from_square = algebraic_to_board_index(move[:2])
-        to_square = algebraic_to_board_index(move[3:5])
+        from_square, to_square, capture, promotion, enpasse, castle = parse_move_notation(move)
+        if from_square is None or to_square is None:
+            return False
+
+        from_square = algebraic_to_board_index(from_square)
         piece = self.board[from_square]
 
         legal_moves = self.get_legal_moves(from_square)
