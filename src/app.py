@@ -21,7 +21,8 @@ from uci import UCI, parse_info
 
 
 # Stockfish UCI engine Constants
-STOCKFISH_SERVER = "192.168.2.19"
+# STOCKFISH_SERVER = "192.168.2.19"
+STOCKFISH_SERVER = "10.42.0.1"
 STOCKFISH_PORT = 9999
 
 # Constants
@@ -543,7 +544,7 @@ async def event_listener():
                     else:
                         try:
                             info = parse_info(response)
-                            if "depth" in info:
+                            if "score" in info:
                                 analysis = "Depth: %s Score: %s\\r%s\\r" % (info["depth"], info["score"], info["pv"])
                                 await tft.print_console(analysis, max_lines=9, page="gm_progress_c", txt_name="analysis")
                         except ValueError:
@@ -828,7 +829,7 @@ async def event_listener():
             chessboard_led.set_lux(lvl)
         prev_lux = lvl
 
-        await uasyncio.sleep_ms(100)
+        await uasyncio.sleep_ms(50)
 
 
 async def initialize():
