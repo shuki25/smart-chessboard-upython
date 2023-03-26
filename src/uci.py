@@ -40,11 +40,16 @@ def parse_info(info: str) -> dict:
     # Split the key-value pairs into a dictionary.
 
     i = 0
-    while True:
+    size = len(info_list)
+
+    while i < size:
         item = info_list[i]
         if item == "score":
             info_dict["score"] = info_list[i+1] + " " + info_list[i+2]
             i += 3
+            continue
+        elif item == "upperbound":
+            i += 1
             continue
         elif item == "string":
             info_dict["string"] = " ".join(info_list[i+1:])
