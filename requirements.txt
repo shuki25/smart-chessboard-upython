@@ -21,6 +21,8 @@ pycparser==2.21
 pyparsing==3.0.9
 pyserial==3.5
 pytest==7.2.0
+pytest-unordered==0.5.2
+pytest-check==2.1.4
 python-dotenv==0.21.0
 reedsolo==1.5.4
 six==1.16.0
