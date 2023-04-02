@@ -273,6 +273,51 @@ class ChessboardLED:
         """
         self.driver.write()
 
+
+    def show_cpu_remote_move(self, move: str, side: str):
+        """
+        Show the CPU remote move on the LED matrix
+
+        :param move: move in algebraic notation
+        :param side: side to move
+        """
+
+        from_square, to_square, capture, promotion, enpassant, castle = chess.parse_move_notation(move)
+
+        if not castle:
+            from_index = chess.algebraic_to_board_index(from_square)
+            to_index = chess.algebraic_to_board_index(to_square)
+            self.driver[from_index] = self.adjust_brightness((0, 0, 32))
+            if capture:
+                self.driver[to_index] = self.adjust_brightness((255, 0, 0))
+            elif promotion:
+                self.driver[to_index] = self.adjust_brightness((0, 100, 100))
+            else:
+                self.driver[to_index] = self.adjust_brightness((0, 155, 0))
+        else:
+            if castle == "K" and side == "w":
+                self.driver[4] = self.adjust_brightness((0, 0, 18))
+                self.driver[5] = self.adjust_brightness((155, 65, 0))
+                self.driver[6] = self.adjust_brightness((155, 65, 0))
+                self.driver[7] = self.adjust_brightness((0, 0, 18))
+            elif castle == "Q" and side == "w":
+                self.driver[4] = self.adjust_brightness((0, 0, 18))
+                self.driver[3] = self.adjust_brightness((155, 65, 0))
+                self.driver[2] = self.adjust_brightness((155, 65, 0))
+                self.driver[0] = self.adjust_brightness((0, 0, 18))
+            elif castle == "K" and side == "b":
+                self.driver[60] = self.adjust_brightness((0, 0, 18))
+                self.driver[61] = self.adjust_brightness((155, 65, 0))
+                self.driver[62] = self.adjust_brightness((155, 65, 0))
+                self.driver[63] = self.adjust_brightness((0, 0, 18))
+            elif castle == "Q" and side == "b":
+                self.driver[60] = self.adjust_brightness((0, 0, 18))
+                self.driver[59] = self.adjust_brightness((155, 65, 0))
+                self.driver[58] = self.adjust_brightness((155, 65, 0))
+                self.driver[56] = self.adjust_brightness((0, 0, 18))
+
+        self.driver.write()
+
     def show_interim_move(self, move: str, side: str):
         """
         Show the interim move on the LED matrix
@@ -321,12 +366,26 @@ class ChessboardLED:
 
         self.driver.write()
 
-    def show_legal_moves(self, origin, board: chess.Chess):
+    def show_illegal_piece_lifted(self, origin: str, board: chess.Chess):
+        if origin is None:
+            return
+
+        origin_square = chess.algebraic_to_board_index(origin)
+        if board[origin_square] is None:
+            return
+
+        self.driver.fill((64, 0, 0))
+        self.driver[origin_square] = self.adjust_brightness((0, 0, 64))
+        self.driver.write()
+        return
+
+    def show_legal_moves(self, origin:str, legal_moves: list, board: chess.Chess):
         """
         Show the legal moves on the LED matrix
 
         :param origin: origin square
-        :param board: Chess object
+        :param legal_moves: list of legal moves
+        :param board: chess board
 
         :return: None
         """
@@ -346,9 +405,6 @@ class ChessboardLED:
 
         self.driver.fill((0, 0, 0))
         self.driver[origin_square] = self.adjust_brightness((0, 0, 64))
-
-        legal_moves = board.get_legal_moves(origin_square)
-        print(legal_moves)
 
         for i, move in enumerate(legal_moves):
             from_square, to_square, capture, promotion, enpassant, castle = chess.parse_move_notation(move)
