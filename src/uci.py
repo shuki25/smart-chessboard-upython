@@ -139,7 +139,7 @@ class UCI:
         self.writer.write(b"position startpos\n")
         print("Sent: position startpos")
 
-    def stop(self):
+    async def stop(self):
         """
         Stop the UCI protocol.
         """
