@@ -212,6 +212,7 @@ async def event_listener():
     check_flag = False
     checkmate_flag = False
     stalemate_flag = False
+    move_complete_flag = False
     opponent_move = False
     console_tag = "game_progress"
     cpu_2p_remote_mode = False
@@ -246,6 +247,7 @@ async def event_listener():
     update_led_board = False
     white_clock_time = 900
     black_clock_time = 900
+    game_end_flag = False
 
     white_clock.clear()
     black_clock.clear()
@@ -445,6 +447,49 @@ async def event_listener():
                 white_clock.clear()
                 black_clock.clear()
 
+            # End game button pressed and resigned
+            if page == 23 and component == 9:
+                print("Player Resigned")
+                await tft.send_command("page game_ended")
+
+                await tft.set_value("t2.txt", "Resigned")
+                if game.turn == "w":
+                    await tft.set_value("t3.txt", "Black Wins")
+                    chessboard_led.show_checkmate("w")
+                    game.result = "0-1"
+                else:
+                    await tft.set_value("t3.txt", "White Wins")
+                    chessboard_led.show_checkmate("b")
+                    game.result = "1-0"
+                game.game_over_flag = True
+                await console_move_history(
+                    game.get_move_history(),
+                    game.fullmove,
+                    max_lines=16,
+                    game_over=game.game_over_flag,
+                    result=game.result,
+                    page="game_ended",
+                )
+                black_clock.stop_clock()
+                white_clock.stop_clock()
+                black_clock.clear()
+                white_clock.clear()
+                game_in_progress = False
+                game_over_flag = True
+
+            if page == 23 and component == 10:
+                print("Game abandoned")
+                if game_mode == MODE_VS_CPU:
+                    await uci_player.stop()
+                await tft.send_command("page main_menu")
+                chessboard_led.clear_board()
+                black_clock.stop_clock()
+                white_clock.stop_clock()
+                black_clock.clear()
+                white_clock.clear()
+                game_in_progress = False
+                game_over_flag = True
+
         if event == nextion.TOUCH_IN_SLEEP:
             (page, component, touch) = data
             print("Touch in sleep event: Page %s, Component %s, Touch %s" % data)
@@ -522,6 +567,7 @@ async def event_listener():
                 black_clock.display_text("to start game.", 0, 20, clear=False)
                 prev_board_status = board_status
                 simulated_board_status = board_status
+                move_complete_flag = False
                 if game_mode == MODE_VS_HUMAN:
                     await tft.send_command("page game_progress")
                     await tft.clear_console(page="game_progress")
@@ -611,8 +657,7 @@ async def event_listener():
                     if not button_white.value() and game.turn == "w":
                         print("White button pressed")
                         white_clock.stop_clock()
-                        if game.check_move(move_notation, side="w"):
-                            print("Valid move")
+                        if move_complete_flag:
                             chessboard_led.clear_board()
                             game.make_move(move_notation, side="w")
                             update_led_board = True
@@ -632,15 +677,15 @@ async def event_listener():
                             if game_mode != MODE_VS_CPU or (game_mode == MODE_VS_CPU and cpu_2p_remote_side == "w"):
                                 black_clock.add_clock_countdown(5)
                             black_clock.start_clock()
+                            move_complete_flag = False
                         else:
-                            print("Invalid move")
+                            print("Incomplete move")
                             white_clock.start_clock()
                             chessboard_led.clear_board()
                     elif not button_black.value() and game.turn == "b":
                         print("Black button pressed")
                         black_clock.stop_clock()
-                        if game.check_move(move_notation, side="b"):
-                            print("Valid move")
+                        if move_complete_flag:
                             chessboard_led.clear_board()
                             game.make_move(move_notation, side="b")
                             update_led_board = True
@@ -662,7 +707,7 @@ async def event_listener():
                                 white_clock.add_clock_countdown(5)
                             white_clock.start_clock()
                         else:
-                            print("Invalid move")
+                            print("Incomplete move")
                             black_clock.start_clock()
                             chessboard_led.clear_board()
                     print("turn: {}".format(game.turn))
@@ -789,6 +834,7 @@ async def event_listener():
                                     chessboard_led.show_illegal_piece_lifted(piece_coordinate, game)
                         if is_legal_move:
                             print("Move completed")
+                            move_complete_flag = True
                             if potential_castle and is_castling:
                                 print("Move recognized as castling")
                                 if chessboard.check_castling_positions(game.turn, castling_side, board_status):
@@ -832,6 +878,7 @@ async def event_listener():
                         curr_pieces = num_pieces
                         chessboard_led.show_interim_move(move_notation, game.turn)
                         position_changed_flag = False
+                        move_complete_flag = True
                     elif board_status == prev_board_status:
                         print("Piece moved back to original position")
                         move_notation = None
