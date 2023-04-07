@@ -76,13 +76,13 @@ python -m pytest -v
 - Install dependencies using `mip` after dropping into the `micropython` interactive shell (REPL)
 
 ```ipython
->>> import network
->>> sta_if = network.WLAN(network.STA_IF)
->>> sta_if.active(True)
->>> sta_if.connect('your-ssid', 'your-password')
->>> sta_if.isconnected()
->>> import mip
->>> mip.install("ssd1306")
+import network
+sta_if = network.WLAN(network.STA_IF)
+sta_if.active(True)
+sta_if.connect('your-ssid', 'your-password')
+sta_if.isconnected()
+import mip
+mip.install("ssd1306")
 ```
 After installing the dependencies, you can upload the files in the `bytecode-compiled` folder to the ESP32 board via Thonny IDE or other tools. The files in the `bytecode-compiled` folder are the compiled scripts that are ready to be uploaded to the ESP32 board. However, the scripts `boot.py` and `main.py` are not compiled.  They are the scripts that are executed when the ESP32 board is powered on.  The `boot.py` script is executed first and the `main.py` script is executed after the `boot.py` script is executed.  The `boot.py` script is responsible for the ESP32 startup and the `main.py` script is responsible for loading and running the chess program.
 
