@@ -4,8 +4,8 @@ import ure
 import time
 import ujson
 
-ap_ssid = "Petnet Setup"
-ap_password = "petnet123"
+ap_ssid = "Smart Chessboard Setup"
+ap_password = "chess123"
 ap_authmode = 3  # WPA2
 
 NETWORK_PROFILES = 'wifi.dat'
