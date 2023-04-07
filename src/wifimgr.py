@@ -25,8 +25,9 @@ def get_connection(sd_available=False):
         return wlan_sta
 
     connected = False
+    print("Trying to connect to WiFi...")
     try:
-        # ESP connecting to WiFi takes time, wait a bit and try again:
+        # # ESP connecting to WiFi takes time, wait a bit and try again:
         time.sleep(3)
         if wlan_sta.isconnected():
             return wlan_sta
@@ -36,26 +37,35 @@ def get_connection(sd_available=False):
             profiles = read_profiles_from_sd()
         else:
             profiles = read_profiles()
+        print("profiles:", profiles)
 
-        # Search WiFis in range
-        wlan_sta.active(True)
-        networks = wlan_sta.scan()
+        if len(profiles):
+            for ssid, password in profiles.items():
+                connected = do_connect(ssid, password)
+                if connected:
+                    break
+        if not connected:
+            print("No network profiles found, connecting to open network")
 
-        AUTHMODE = {0: "open", 1: "WEP", 2: "WPA-PSK", 3: "WPA2-PSK", 4: "WPA/WPA2-PSK"}
-        for ssid, bssid, channel, rssi, authmode, hidden in sorted(networks, key=lambda x: x[3], reverse=True):
-            ssid = ssid.decode('utf-8')
-            encrypted = authmode > 0
-            print("ssid: %s chan: %d rssi: %d authmode: %s" % (ssid, channel, rssi, AUTHMODE.get(authmode, '?')))
-            if encrypted:
-                if ssid in profiles:
-                    password = profiles[ssid]
-                    connected = do_connect(ssid, password)
-                else:
-                    print("skipping unknown encrypted network")
-            else:  # open
-                connected = do_connect(ssid, None)
-            if connected:
-                break
+            # Search WiFis in range
+            wlan_sta.active(True)
+            networks = wlan_sta.scan()
+
+            AUTHMODE = {0: "open", 1: "WEP", 2: "WPA-PSK", 3: "WPA2-PSK", 4: "WPA/WPA2-PSK"}
+            for ssid, bssid, channel, rssi, authmode, hidden in sorted(networks, key=lambda x: x[3], reverse=True):
+                ssid = ssid.decode('utf-8')
+                encrypted = authmode > 0
+                print("ssid: %s chan: %d rssi: %d authmode: %s" % (ssid, channel, rssi, AUTHMODE.get(authmode, '?')))
+                if encrypted:
+                    if ssid in profiles:
+                        password = profiles[ssid]
+                        connected = do_connect(ssid, password)
+                    else:
+                        print("skipping unknown encrypted network")
+                else:  # open
+                    connected = do_connect(ssid, None)
+                if connected:
+                    break
 
     except OSError as e:
         print("exception", str(e))
@@ -68,12 +78,15 @@ def get_connection(sd_available=False):
 
 
 def read_profiles():
-    with open(NETWORK_PROFILES) as f:
-        lines = f.readlines()
     profiles = {}
-    for line in lines:
-        ssid, password = line.strip("\n").split(";")
-        profiles[ssid] = password
+    try:
+        with open(NETWORK_PROFILES) as f:
+            lines = f.readlines()
+        for line in lines:
+            ssid, password = line.strip("\n").split(";")
+            profiles[ssid] = password
+    except OSError as e:
+        print("exception", str(e))
     return profiles
 
 
