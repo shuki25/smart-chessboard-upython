@@ -370,6 +370,26 @@ class Chessboard:
 
         return old_pos, new_pos
 
+    def get_castling_move(self, color: str, side: str):
+        """
+        Get the castling move in long algebraic notation
+
+        :param color: Color of the king
+        :param side: Side of the king
+
+        :return: Castling move in long algebraic notation
+        """
+        if color == "w":
+            if side == "K":
+                return "e1", "g1"
+            else:
+                return "e1", "c1"
+        else:
+            if side == "K":
+                return "e8", "g8"
+            else:
+                return "e8", "c8"
+
     def detect_capture_move_positions(self, prev_state, capturing_state, captured_state):
         """
         Detect the positions of a piece captured from old position to new position
