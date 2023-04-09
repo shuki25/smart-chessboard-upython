@@ -91,6 +91,22 @@ class UCI:
         self.port = port
         self.level = level
 
+
+    def set_game_level(self, level: int):
+        # Send the "setoption" command to the chess engine.
+        self.writer.write(b"setoption name Skill Level value %d\n" % self.level)
+        print("Sent: setoption name Skill Level value %d" % self.level)
+
+        err_prob = round((level * 6.35) + 1)
+        max_err = round((level * -0.5) + 10)
+
+        self.writer.write(b"setoption name Skill Level Maximum Error value %d\n" % max_err)
+        print("Sent: setoption name Skill Level Maximum Error value %d" % max_err)
+
+        self.writer.write(b"setoption name Skill Level Probability value %d\n" % err_prob)
+        print("Sent: setoption name Skill Level Probability value %d" % err_prob)
+
+
     async def start(self):
         """
         Start the UCI protocol.
@@ -112,10 +128,6 @@ class UCI:
                 self.connected = True
                 break
 
-        # Send the "setoption" command to the chess engine.
-        self.writer.write(b"setoption name Skill Level value %d\n" % self.level)
-        print("Sent: setoption name Skill Level value %d" % self.level)
-
         # Send the "isready" command to the chess engine.
         self.writer.write(b"isready\n")
         print("Sent: isready")
@@ -134,6 +146,8 @@ class UCI:
         # Send the "ucinewgame" command to the chess engine.
         self.writer.write(b"ucinewgame\n")
         print("Sent: ucinewgame")
+
+        self.set_game_level(self.level)
 
         # Send the "position" command to the chess engine.
         self.writer.write(b"position startpos\n")
