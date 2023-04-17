@@ -196,6 +196,26 @@ class Chessboard:
             else:
                 self.bitboard[board_idx] = 0
 
+    def delta_board_positions(self, previous_board_status: int, current_board_status: int = None):
+        """
+        Determine the number of board positions that changed between two board states
+
+        :param previous_board_status: Previous board state
+        :param current_board_status: Current board state
+
+        :return: Number of board position that changed
+        """
+        if current_board_status is None:
+            current_board_status = self.board_status
+
+        delta = previous_board_status ^ current_board_status
+
+        count = 0
+        while delta:
+            delta &= delta - 1
+            count += 1
+        return count
+
     def print_board(self):
         """
         Print the board state to the console

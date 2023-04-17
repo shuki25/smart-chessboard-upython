@@ -245,12 +245,15 @@ async def event_listener():
     in_game_mode = False
     game_mode = MODE_VS_HUMAN
     prev_lux = 0
+    force_fix_board_flag = False
     fix_board_flag = False
+    fix_board_setup_flag = False
     segoe_board = None
     update_led_board = False
     white_clock_time = 900
     black_clock_time = 900
     game_end_flag = False
+    game_progress_page_id = 0
 
     white_clock.clear()
     black_clock.clear()
@@ -277,9 +280,15 @@ async def event_listener():
             (page, component, touch) = data
             print("Touch event: Page %s, Component %s, Touch %s" % data)
 
+            # Go to main menu
+            if page == 18 and component == 5:
+                await tft.send_command("page main_menu")
+                chessboard_led.clear_board()
+
             # Start game vs CPU
             if (page == 16 and component == 2) or (page == 16 and component == 15):
                 game_mode = MODE_VS_CPU
+                game_progress_page_id = 6
                 in_game_mode = True
                 game_in_progress = False
                 show_setup_message = False
@@ -310,6 +319,7 @@ async def event_listener():
             # Start game vs human
             if page == 4 and component == 3:
                 game_mode = MODE_VS_HUMAN
+                game_progress_page_id = 7
                 in_game_mode = True
                 game_in_progress = False
                 show_setup_message = False
@@ -321,6 +331,7 @@ async def event_listener():
             # Start game vs human remote
             if page == 4 and component == 5:
                 game_mode = MODE_VS_HUMAN_REMOTE
+                game_progress_page_id = 5
                 in_game_mode = True
                 await tft.send_command("page start_remote")
 
@@ -331,28 +342,14 @@ async def event_listener():
                 await chessboard_led.rgb_test(tft.print_console)
 
             # Fix board position
-            if page in [5, 6, 7] and component == 6:
-                print("Show Segoe chess board position on Nextion display")
-                fix_board_flag = True
-                black_clock.stop_clock()
-                white_clock.stop_clock()
-                segoe_board = game.get_segoe_chess_board()
-                print("Segoe board: %s" % segoe_board)
-                await tft.set_value("board_preview.board.txt", segoe_board)
-                chessboard.read_board()
-                current_bitboard = chessboard.convert_bitboard_to_int()
-                print("Translated bitboard: {}".format(current_bitboard))
-                in_position_state = current_bitboard & pre_move_board_state
-                out_position_state = ~current_bitboard & pre_move_board_state
-                chessboard_led.zero_bitboard_squares()
-                chessboard_led.prepare_bitboard_square(in_position_state, (0, 48, 0))
-                chessboard_led.prepare_bitboard_square(out_position_state, (58, 0, 0))
-                chessboard_led.display_bitboard_squares()
+            if (page in [5, 6, 7] and component == 6):
+                force_fix_board_flag = True
 
             # Fix board position completed
             if page == 14 and component == 5:
                 print("Fix board position completed")
                 fix_board_flag = False
+                force_fix_board_flag = False
                 print("Before fen parse")
                 chessboard.print_board()
                 chessboard.parse_fen(game.get_fen())
@@ -496,6 +493,29 @@ async def event_listener():
         if event == nextion.TOUCH_IN_SLEEP:
             (page, component, touch) = data
             print("Touch in sleep event: Page %s, Component %s, Touch %s" % data)
+
+        # Handle Fix Last Position Event
+        if force_fix_board_flag and not fix_board_flag:
+            if event != nextion.TOUCH:
+                await tft.set_value("board_preview.prev_page.val", game_progress_page_id)
+                await tft.send_command("page board_preview")
+            print("Show Segoe chess board position on Nextion display")
+            fix_board_flag = True
+            force_fix_board_flag = False
+            black_clock.stop_clock()
+            white_clock.stop_clock()
+            segoe_board = game.get_segoe_chess_board()
+            print("Segoe board: %s" % segoe_board)
+            await tft.set_value("board_preview.board.txt", segoe_board)
+            chessboard.read_board()
+            current_bitboard = chessboard.convert_bitboard_to_int()
+            print("Translated bitboard: {}".format(current_bitboard))
+            in_position_state = current_bitboard & pre_move_board_state
+            out_position_state = ~current_bitboard & pre_move_board_state
+            chessboard_led.zero_bitboard_squares()
+            chessboard_led.prepare_bitboard_square(in_position_state, (0, 48, 0))
+            chessboard_led.prepare_bitboard_square(out_position_state, (58, 0, 0))
+            chessboard_led.display_bitboard_squares()
 
         # Perform test mode
         if test_mode == 2:  # OLED Display test
@@ -768,10 +788,24 @@ async def event_listener():
                 print("IO Expander interrupt")
                 chessboard.read_board()
                 board_status, board = chessboard.get_board()
-                if not position_changed_flag and board_status != prev_board_status:
+
+                delta_positions = chessboard.delta_board_positions(prev_board_status, board_status)
+                print("delta_positions: %d" % delta_positions)
+
+                if delta_positions > 1:
+                    if potential_castle and delta_positions <= 4:
+                        print("More than two positions changed, but castling is possible")
+                    elif delta_positions == 2 and capture_flag:
+                        print("Two positions changed, capture is possible")
+                    elif delta_positions > 2:
+                        print("More than two positions changed, force board reconfiguration")
+                        force_fix_board_flag = True
+
+                if not position_changed_flag and board_status != prev_board_status and not force_fix_board_flag:
                     position_changed_flag = True
                     print("board position changed")
-                if position_changed_flag:
+
+                if position_changed_flag and not force_fix_board_flag:
                     num_pieces = chessboard.count_pieces(board_status)
                     if num_pieces < curr_pieces:
 
@@ -836,43 +870,47 @@ async def event_listener():
                                 (board_state_piece_lifted & (board_status ^ INVERSE_MASK))
                             )
                             print("Piece lifted: %s" % piece_coordinate)
-                            index = chessboard.algebraic_to_board_index(piece_coordinate)
-                            piece_status = game.is_friendly(index, game.turn)
-                            if piece_status:
-                                print("Friendly piece lifted")
+                            if piece_coordinate is None:
+                                print("Unknown piece lifted, bailing")
+                                force_fix_board_flag = True
                             else:
-                                print("Enemy piece lifted")
-
-                            if potential_castle and piece_coordinate is not None:
-                                board_state_piece_lifted = board_status
                                 index = chessboard.algebraic_to_board_index(piece_coordinate)
-                                piece_identifier = game.identify_piece(piece_coordinate)
-                                if piece_identifier in "Rr":
-                                    print("The king is castling")
-                                    is_castling = True
-                                    if index in [7, 63]:
-                                        print("King side castle")
-                                        castling_side = "K"
-                                    elif index in [0, 56]:
-                                        print("Queen side castle")
-                                        castling_side = "Q"
-                                    else:
-                                        print("Invalid castle")
-                                        castling_side = None
-                                print("Action ignored")
-                            elif piece_status:
-                                print("Two friendly pieces lifted, bail out")
-                                chessboard_led.show_illegal_piece_lifted(piece_coordinate, game)
-                            elif not piece_status:
-                                capture_flag = True
-                                print(
-                                    "Capture detected: %s"
-                                    % chessboard.coord_to_algebraic(
-                                        (board_state_piece_lifted & (board_status ^ INVERSE_MASK))
+                                piece_status = game.is_friendly(index, game.turn)
+                                if piece_status:
+                                    print("Friendly piece lifted")
+                                else:
+                                    print("Enemy piece lifted")
+
+                                if potential_castle and piece_coordinate is not None:
+                                    board_state_piece_lifted = board_status
+                                    index = chessboard.algebraic_to_board_index(piece_coordinate)
+                                    piece_identifier = game.identify_piece(piece_coordinate)
+                                    if piece_identifier in "Rr":
+                                        print("The king is castling")
+                                        is_castling = True
+                                        if index in [7, 63]:
+                                            print("King side castle")
+                                            castling_side = "K"
+                                        elif index in [0, 56]:
+                                            print("Queen side castle")
+                                            castling_side = "Q"
+                                        else:
+                                            print("Invalid castle")
+                                            castling_side = None
+                                    print("Action ignored")
+                                elif piece_status:
+                                    print("Two friendly pieces lifted, bail out")
+                                    chessboard_led.show_illegal_piece_lifted(piece_coordinate, game)
+                                elif not piece_status:
+                                    capture_flag = True
+                                    print(
+                                        "Capture detected: %s"
+                                        % chessboard.coord_to_algebraic(
+                                            (board_state_piece_lifted & (board_status ^ INVERSE_MASK))
+                                        )
                                     )
-                                )
-                                board_state_capturing_piece = board_state_piece_lifted
-                                board_state_captured_piece = board_status
+                                    board_state_capturing_piece = board_state_piece_lifted
+                                    board_state_captured_piece = board_status
                     piece_diff = num_pieces - curr_pieces
                     print(
                         "Piece diff: %s, Piece removed: %s, Capture detected: %s, Potential castle: %s, Is castling: %s, move_complete_flag: %s, game_mode: %s"
