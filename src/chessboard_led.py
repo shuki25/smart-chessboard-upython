@@ -411,22 +411,14 @@ class ChessboardLED:
             if castle:
                 if castle in "Kk":
                     if side == "b":
-                        self.driver[61] = self.adjust_brightness((0, 100, 64))
-                        self.driver[62] = self.adjust_brightness((0, 100, 0))
-                        self.driver[63] = self.adjust_brightness((100, 100, 100))
+                        self.driver[62] = self.adjust_brightness((0, 32, 0))
                     else:
-                        self.driver[5] = self.adjust_brightness((0, 100, 64))
-                        self.driver[6] = self.adjust_brightness((0, 100, 0))
-                        self.driver[7] = self.adjust_brightness((100, 100, 100))
+                        self.driver[6] = self.adjust_brightness((0, 32, 0))
                 elif castle in "Qq":
                     if side == "b":
-                        self.driver[59] = self.adjust_brightness((0, 100, 64))
-                        self.driver[58] = self.adjust_brightness((0, 100, 0))
-                        self.driver[56] = self.adjust_brightness((100, 100, 100))
+                        self.driver[58] = self.adjust_brightness((0, 32, 0))
                     else:
-                        self.driver[3] = self.adjust_brightness((0, 100, 64))
-                        self.driver[2] = self.adjust_brightness((0, 100, 0))
-                        self.driver[0] = self.adjust_brightness((100, 100, 100))
+                        self.driver[2] = self.adjust_brightness((0, 32, 0))
             else:
                 index = chess.algebraic_to_board_index(to_square)
                 if capture:
