@@ -65,7 +65,12 @@ class ChessboardLED:
     led_count = 64
     lux = 0
 
-    def __init__(self, driver: NeoPixel = None, led_io: machine.Pin = None, vls_io: machine.Pin = None):
+    def __init__(
+        self,
+        driver: NeoPixel = None,
+        led_io: machine.Pin = None,
+        vls_io: machine.Pin = None,
+    ):
         """
         Create a ChessboardLed object
 
@@ -112,17 +117,31 @@ class ChessboardLED:
         if lux > (LUX_MAX * 0.03125):
             lux = LUX_MAX * 0.03125
 
-        adj_max_brightness = self.max_brightness * ((lux // (LUX_MAX * 0.003125)) + 1) / 10
+        adj_max_brightness = (
+            self.max_brightness * ((lux // (LUX_MAX * 0.003125)) + 1) / 10
+        )
 
         adj_color = (
             calculate_proportion(
-                color[0], adj_max_brightness, self.max_brightness, self.min_brightness, self.max_brightness
+                color[0],
+                adj_max_brightness,
+                self.max_brightness,
+                self.min_brightness,
+                self.max_brightness,
             ),
             calculate_proportion(
-                color[1], adj_max_brightness, self.max_brightness, self.min_brightness, self.max_brightness
+                color[1],
+                adj_max_brightness,
+                self.max_brightness,
+                self.min_brightness,
+                self.max_brightness,
             ),
             calculate_proportion(
-                color[2], adj_max_brightness, self.max_brightness, self.min_brightness, self.max_brightness
+                color[2],
+                adj_max_brightness,
+                self.max_brightness,
+                self.min_brightness,
+                self.max_brightness,
             ),
         )
         # print("lux: {}, adj_max_brightness: {}".format(lux, adj_max_brightness))
@@ -273,7 +292,6 @@ class ChessboardLED:
         """
         self.driver.write()
 
-
     def show_cpu_remote_move(self, move: str, side: str):
         """
         Show the CPU remote move on the LED matrix
@@ -282,7 +300,14 @@ class ChessboardLED:
         :param side: side to move
         """
 
-        from_square, to_square, capture, promotion, enpassant, castle = chess.parse_move_notation(move)
+        (
+            from_square,
+            to_square,
+            capture,
+            promotion,
+            enpassant,
+            castle,
+        ) = chess.parse_move_notation(move)
 
         if not castle:
             from_index = chess.algebraic_to_board_index(from_square)
@@ -328,7 +353,14 @@ class ChessboardLED:
         :return: None
         """
 
-        from_square, to_square, capture, promotion, enpassant, castle = chess.parse_move_notation(move)
+        (
+            from_square,
+            to_square,
+            capture,
+            promotion,
+            enpassant,
+            castle,
+        ) = chess.parse_move_notation(move)
 
         self.driver.fill((0, 0, 0))
 
@@ -379,7 +411,7 @@ class ChessboardLED:
         self.driver.write()
         return
 
-    def show_legal_moves(self, origin:str, legal_moves: list, board: chess.Chess):
+    def show_legal_moves(self, origin: str, legal_moves: list, board: chess.Chess):
         """
         Show the legal moves on the LED matrix
 
@@ -407,7 +439,14 @@ class ChessboardLED:
         self.driver[origin_square] = self.adjust_brightness((0, 0, 64))
 
         for i, move in enumerate(legal_moves):
-            from_square, to_square, capture, promotion, enpassant, castle = chess.parse_move_notation(move)
+            (
+                from_square,
+                to_square,
+                capture,
+                promotion,
+                enpassant,
+                castle,
+            ) = chess.parse_move_notation(move)
             if castle:
                 if castle in "Kk":
                     if side == "b":
@@ -492,7 +531,11 @@ class ChessboardLED:
         for i in range(4 * n):
             for j in range(n):
                 self.driver[j] = (0, 0, 0)
-            self.driver[i % n] = (self.max_brightness, self.max_brightness, self.max_brightness)
+            self.driver[i % n] = (
+                self.max_brightness,
+                self.max_brightness,
+                self.max_brightness,
+            )
             self.driver.write()
             await uasyncio.sleep_ms(25)
 

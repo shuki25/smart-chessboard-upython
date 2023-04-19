@@ -43,7 +43,12 @@ BUTTON_BLACK = 12
 i2c_mux_addr = 0x70
 i2c: machine.I2C
 i2c_mux: I2CMultiplex
-chessboard_gpio_addr = [IO_EXPANDER_0_ADDRESS, IO_EXPANDER_1_ADDRESS, IO_EXPANDER_2_ADDRESS, IO_EXPANDER_3_ADDRESS]
+chessboard_gpio_addr = [
+    IO_EXPANDER_0_ADDRESS,
+    IO_EXPANDER_1_ADDRESS,
+    IO_EXPANDER_2_ADDRESS,
+    IO_EXPANDER_3_ADDRESS,
+]
 chessboard: Chessboard
 board: dict
 board_status: int
@@ -149,7 +154,12 @@ async def connect_wifi():
 
 
 async def console_move_history(
-        move_history, full_move_number, max_lines=13, game_over=False, result="*", page="game_progress"
+    move_history,
+    full_move_number,
+    max_lines=13,
+    game_over=False,
+    result="*",
+    page="game_progress",
 ):
     global tft
 
@@ -184,7 +194,9 @@ async def console_move_history(
     if game_over:
         console_buffer += "\\r%s" % result
     print("console buffer: %s" % console_buffer)
-    await tft.print_console(console_buffer, page=page, max_lines=max_lines, replace=True)
+    await tft.print_console(
+        console_buffer, page=page, max_lines=max_lines, replace=True
+    )
 
 
 async def event_listener():
@@ -346,7 +358,7 @@ async def event_listener():
                 await chessboard_led.rgb_test(tft.print_console)
 
             # Fix board position
-            if (page in [5, 6, 7] and component == 6):
+            if page in [5, 6, 7] and component == 6:
                 force_fix_board_flag = True
 
             # Fix board position completed
@@ -507,7 +519,9 @@ async def event_listener():
         # Handle Fix Last Position Event
         if force_fix_board_flag and not fix_board_flag:
             if event != nextion.TOUCH:
-                await tft.set_value("board_preview.prev_page.val", game_progress_page_id)
+                await tft.set_value(
+                    "board_preview.prev_page.val", game_progress_page_id
+                )
                 await tft.send_command("page board_preview")
             print("Show Segoe chess board position on Nextion display")
             fix_board_flag = True
@@ -530,9 +544,9 @@ async def event_listener():
         # Perform test mode
         if test_mode == 2:  # OLED Display test
             if (
-                    white_clock.is_clock_expired()
-                    and not black_clock.is_clock_running()
-                    and not black_clock.is_clock_expired()
+                white_clock.is_clock_expired()
+                and not black_clock.is_clock_running()
+                and not black_clock.is_clock_expired()
             ):
                 white_clock.update_clock()
                 await tft.print_console("Done\\rTesting black clock...")
@@ -628,28 +642,52 @@ async def event_listener():
                     uci_player_wait_flag = True
                     cpu_2p_remote_has_moved = False
                     await tft.print_console(
-                        "Thinking...", max_lines=9, page="gm_progress_c", txt_name="analysis", replace=True
+                        "Thinking...",
+                        max_lines=9,
+                        page="gm_progress_c",
+                        txt_name="analysis",
+                        replace=True,
                     )
-                if game.turn == cpu_2p_remote_side and uci_player_wait_flag and not cpu_2p_remote_has_moved:
+                if (
+                    game.turn == cpu_2p_remote_side
+                    and uci_player_wait_flag
+                    and not cpu_2p_remote_has_moved
+                ):
                     response = await uci_player.engine_response(["info", "bestmove"])
                     if response.startswith("bestmove"):
                         cpu_2p_remote_has_moved = True
                         uci_move = response.split(" ")[1]
                         cpu_move = "CPU move: {}".format(uci_move)
                         print(cpu_move)
-                        await tft.print_console(cpu_move + "\\r", max_lines=9, page="gm_progress_c",
-                                                txt_name="analysis")
+                        await tft.print_console(
+                            cpu_move + "\\r",
+                            max_lines=9,
+                            page="gm_progress_c",
+                            txt_name="analysis",
+                        )
                         chessboard_led.show_interim_move(uci_move, cpu_2p_remote_side)
                     else:
                         try:
                             info = parse_info(response)
                             if "score" in info:
-                                analysis = "Depth: %s Score: %s\\r%s\\r" % (info["depth"], info["score"], info["pv"])
-                                await tft.print_console(analysis, max_lines=9, page="gm_progress_c",
-                                                        txt_name="analysis")
+                                analysis = "Depth: %s Score: %s\\r%s\\r" % (
+                                    info["depth"],
+                                    info["score"],
+                                    info["pv"],
+                                )
+                                await tft.print_console(
+                                    analysis,
+                                    max_lines=9,
+                                    page="gm_progress_c",
+                                    txt_name="analysis",
+                                )
                         except ValueError:
                             pass
-                if game.turn == cpu_2p_remote_side and uci_player_wait_flag and cpu_2p_remote_has_moved:
+                if (
+                    game.turn == cpu_2p_remote_side
+                    and uci_player_wait_flag
+                    and cpu_2p_remote_has_moved
+                ):
                     pass
 
             # Handle button interrupts
@@ -657,9 +695,11 @@ async def event_listener():
             if button_interrupt_flag:
                 button_interrupt_flag = False
 
-                if (not button_white.value() and not button_black.value() and game_in_progress) or (
-                        not button_black.value() and not game_in_progress
-                ):
+                if (
+                    not button_white.value()
+                    and not button_black.value()
+                    and game_in_progress
+                ) or (not button_black.value() and not game_in_progress):
                     if not button_white.value() and not button_black.value():
                         print("Both buttons pressed")
                         print("Resetting board positions")
@@ -701,10 +741,18 @@ async def event_listener():
                             board_state_captured_piece = 0
                             curr_pieces = final_num_pieces
                             position_changed_flag = False
-                            if potential_castle and is_castling and castling_complete_flag:
+                            if (
+                                potential_castle
+                                and is_castling
+                                and castling_complete_flag
+                            ):
                                 print("Castling complete, updating board")
-                                chessboard.update_castling_move(game.turn, castling_side)
-                                move_notation = "O-O" if castling_side == "K" else "O-O-O"
+                                chessboard.update_castling_move(
+                                    game.turn, castling_side
+                                )
+                                move_notation = (
+                                    "O-O" if castling_side == "K" else "O-O-O"
+                                )
                                 potential_castle = False
                                 is_castling = False
                                 castling_side = None
@@ -730,7 +778,9 @@ async def event_listener():
                                 result=game.result,
                                 page=console_tag,
                             )
-                            if game_mode != MODE_VS_CPU or (game_mode == MODE_VS_CPU and cpu_2p_remote_side == "w"):
+                            if game_mode != MODE_VS_CPU or (
+                                game_mode == MODE_VS_CPU and cpu_2p_remote_side == "w"
+                            ):
                                 black_clock.add_clock_countdown(5)
                             black_clock.start_clock()
                             move_complete_flag = False
@@ -751,9 +801,17 @@ async def event_listener():
                             curr_pieces = final_num_pieces
                             chessboard_led.show_interim_move(move_notation, game.turn)
                             position_changed_flag = False
-                            if potential_castle and is_castling and castling_complete_flag:
-                                chessboard.update_castling_move(game.turn, castling_side)
-                                move_notation = "O-O" if castling_side == "K" else "O-O-O"
+                            if (
+                                potential_castle
+                                and is_castling
+                                and castling_complete_flag
+                            ):
+                                chessboard.update_castling_move(
+                                    game.turn, castling_side
+                                )
+                                move_notation = (
+                                    "O-O" if castling_side == "K" else "O-O-O"
+                                )
                                 potential_castle = False
                                 is_castling = False
                                 castling_side = None
@@ -780,7 +838,9 @@ async def event_listener():
                                 result=game.result,
                                 page=console_tag,
                             )
-                            if game_mode != MODE_VS_CPU or (game_mode == MODE_VS_CPU and cpu_2p_remote_side == "b"):
+                            if game_mode != MODE_VS_CPU or (
+                                game_mode == MODE_VS_CPU and cpu_2p_remote_side == "b"
+                            ):
                                 white_clock.add_clock_countdown(5)
                             white_clock.start_clock()
                         else:
@@ -808,26 +868,47 @@ async def event_listener():
                 chessboard.read_board()
                 board_status, board = chessboard.get_board()
 
-                print("Potential castle: %s, Is castling: %s, Castling Complete: %s, Finish Castle Move: %s" % (
-                    potential_castle, is_castling, castling_complete_flag, finish_castling_flag))
+                print(
+                    "Potential castle: %s, Is castling: %s, Castling Complete: %s, Finish Castle Move: %s"
+                    % (
+                        potential_castle,
+                        is_castling,
+                        castling_complete_flag,
+                        finish_castling_flag,
+                    )
+                )
 
-                delta_positions = chessboard.delta_board_positions(prev_board_status, board_status)
+                delta_positions = chessboard.delta_board_positions(
+                    prev_board_status, board_status
+                )
                 print("delta_positions: %d" % delta_positions)
 
                 if delta_positions > 1:
                     if potential_castle and delta_positions <= 4:
-                        print("More than two positions changed, but castling is possible")
+                        print(
+                            "More than two positions changed, but castling is possible"
+                        )
                     elif delta_positions == 2 and capture_flag:
                         print("Two positions changed, capture is possible")
                     elif delta_positions > 2:
-                        print("More than two positions changed, force board reconfiguration")
+                        print(
+                            "More than two positions changed, force board reconfiguration"
+                        )
                         force_fix_board_flag = True
 
-                if not position_changed_flag and board_status != prev_board_status and not force_fix_board_flag:
+                if (
+                    not position_changed_flag
+                    and board_status != prev_board_status
+                    and not force_fix_board_flag
+                ):
                     position_changed_flag = True
                     print("board position changed")
 
-                if position_changed_flag and not force_fix_board_flag and finish_castling_flag:
+                if (
+                    position_changed_flag
+                    and not force_fix_board_flag
+                    and finish_castling_flag
+                ):
                     print("Waiting for castling to finish")
 
                     # Check if king has been relifted from board, if so, cancel castling
@@ -842,7 +923,9 @@ async def event_listener():
 
                     # Check if rook has been moved and king is still on board, if so, finish castling
                     if delta_positions == 4:
-                        in_castle_position = chessboard.check_castling_positions(game.turn, castling_side, board_status)
+                        in_castle_position = chessboard.check_castling_positions(
+                            game.turn, castling_side, board_status
+                        )
                         print("in_castle_position: %s" % in_castle_position)
                         if in_castle_position:
                             print("Rook has moved into position")
@@ -855,10 +938,16 @@ async def event_listener():
                             print("Waiting for button press to confirm move")
                             final_move_board_status = board_status
                             final_num_pieces = chessboard.count_pieces(board_status)
-                            final_move = chessboard.get_castling_move(game.turn, castling_side)
+                            final_move = chessboard.get_castling_move(
+                                game.turn, castling_side
+                            )
                             print("Final move: %s-%s" % final_move)
 
-                if position_changed_flag and not force_fix_board_flag and not finish_castling_flag:
+                if (
+                    position_changed_flag
+                    and not force_fix_board_flag
+                    and not finish_castling_flag
+                ):
                     num_pieces = chessboard.count_pieces(board_status)
                     if num_pieces < curr_pieces:
 
@@ -866,24 +955,43 @@ async def event_listener():
 
                         # if curr_pieces - num_pieces == 1 and is_castling and potential_castle:
                         #     print("Rook moved during castling")
-                        if curr_pieces - num_pieces == 1 and move_complete_flag and not capture_flag:
+                        if (
+                            curr_pieces - num_pieces == 1
+                            and move_complete_flag
+                            and not capture_flag
+                        ):
                             piece_coordinate = chessboard.coord_to_algebraic(
-                                (final_move_board_status & (board_status ^ INVERSE_MASK))
+                                (
+                                    final_move_board_status
+                                    & (board_status ^ INVERSE_MASK)
+                                )
                             )
-                            print("Piece lifted: %s, Current move: %s, Origin square: %s" % (
-                            piece_coordinate, final_move, origin_square))
+                            print(
+                                "Piece lifted: %s, Current move: %s, Origin square: %s"
+                                % (piece_coordinate, final_move, origin_square)
+                            )
                             if piece_coordinate == final_move[1]:
-                                chessboard_led.show_legal_moves(final_move[0], legal_moves, game)
+                                chessboard_led.show_legal_moves(
+                                    final_move[0], legal_moves, game
+                                )
                             else:
-                                chessboard_led.show_illegal_piece_lifted(piece_coordinate, game)
-                        elif curr_pieces - num_pieces == 1 and not capture_flag and not move_complete_flag:
+                                chessboard_led.show_illegal_piece_lifted(
+                                    piece_coordinate, game
+                                )
+                        elif (
+                            curr_pieces - num_pieces == 1
+                            and not capture_flag
+                            and not move_complete_flag
+                        ):
                             piece_removed = True
                             piece_coordinate = chessboard.coord_to_algebraic(
                                 (prev_board_status & (board_status ^ INVERSE_MASK))
                             )
                             print("Piece lifted: %s" % piece_coordinate)
                             board_state_piece_lifted = board_status
-                            index = chessboard.algebraic_to_board_index(piece_coordinate)
+                            index = chessboard.algebraic_to_board_index(
+                                piece_coordinate
+                            )
                             piece_identifier = game.identify_piece(piece_coordinate)
                             piece_status = game.is_friendly(index, game.turn)
                             if piece_identifier in "Kk":
@@ -895,40 +1003,69 @@ async def event_listener():
                                     print("No potential castle")
                                     potential_castle = False
 
-                            if game_mode == MODE_VS_CPU and game.turn == cpu_2p_remote_side and uci_player_wait_flag and cpu_2p_remote_has_moved:
+                            if (
+                                game_mode == MODE_VS_CPU
+                                and game.turn == cpu_2p_remote_side
+                                and uci_player_wait_flag
+                                and cpu_2p_remote_has_moved
+                            ):
                                 if piece_coordinate[:2] == uci_move[:2]:
                                     print("Piece lifted matches CPU move")
-                                    chessboard_led.show_cpu_remote_move(uci_move, game.turn)
+                                    chessboard_led.show_cpu_remote_move(
+                                        uci_move, game.turn
+                                    )
                                 else:
                                     print("Piece lifted does not match CPU move")
-                                    chessboard_led.show_illegal_piece_lifted(piece_coordinate, game)
+                                    chessboard_led.show_illegal_piece_lifted(
+                                        piece_coordinate, game
+                                    )
                             elif piece_status:
                                 print("Friendly piece lifted")
-                                origin_square = algebraic_to_board_index(piece_coordinate)
+                                origin_square = algebraic_to_board_index(
+                                    piece_coordinate
+                                )
                                 legal_moves = game.get_legal_moves(origin_square)
-                                chessboard_led.show_legal_moves(piece_coordinate, legal_moves, game)
+                                chessboard_led.show_legal_moves(
+                                    piece_coordinate, legal_moves, game
+                                )
                             else:
                                 print("Enemy piece lifted")
-                                chessboard_led.show_illegal_piece_lifted(piece_coordinate, game)
+                                chessboard_led.show_illegal_piece_lifted(
+                                    piece_coordinate, game
+                                )
 
                         # Second piece lifted
-                        elif curr_pieces - num_pieces == 2 and move_complete_flag and capture_flag:
+                        elif (
+                            curr_pieces - num_pieces == 2
+                            and move_complete_flag
+                            and capture_flag
+                        ):
                             piece_coordinate = chessboard.coord_to_algebraic(
-                                (final_move_board_status & (board_status ^ INVERSE_MASK))
+                                (
+                                    final_move_board_status
+                                    & (board_status ^ INVERSE_MASK)
+                                )
                             )
                             print("Piece lifted: %s" % piece_coordinate)
-                            chessboard_led.show_illegal_piece_lifted(piece_coordinate, game)
+                            chessboard_led.show_illegal_piece_lifted(
+                                piece_coordinate, game
+                            )
                         elif curr_pieces - num_pieces == 2:
                             print("Two pieces lifted")
                             piece_coordinate = chessboard.coord_to_algebraic(
-                                (board_state_piece_lifted & (board_status ^ INVERSE_MASK))
+                                (
+                                    board_state_piece_lifted
+                                    & (board_status ^ INVERSE_MASK)
+                                )
                             )
                             print("Piece lifted: %s" % piece_coordinate)
                             if piece_coordinate is None:
                                 print("Unknown piece lifted, bailing")
                                 force_fix_board_flag = True
                             else:
-                                index = chessboard.algebraic_to_board_index(piece_coordinate)
+                                index = chessboard.algebraic_to_board_index(
+                                    piece_coordinate
+                                )
                                 piece_status = game.is_friendly(index, game.turn)
                                 if piece_status:
                                     print("Friendly piece lifted")
@@ -954,39 +1091,65 @@ async def event_listener():
                                 #     print("Action ignored")
                                 if piece_status:
                                     print("Two friendly pieces lifted, bail out")
-                                    chessboard_led.show_illegal_piece_lifted(piece_coordinate, game)
+                                    chessboard_led.show_illegal_piece_lifted(
+                                        piece_coordinate, game
+                                    )
                                 elif not piece_status:
                                     capture_flag = True
                                     print(
                                         "Capture detected: %s"
                                         % chessboard.coord_to_algebraic(
-                                            (board_state_piece_lifted & (board_status ^ INVERSE_MASK))
+                                            (
+                                                board_state_piece_lifted
+                                                & (board_status ^ INVERSE_MASK)
+                                            )
                                         )
                                     )
-                                    board_state_capturing_piece = board_state_piece_lifted
+                                    board_state_capturing_piece = (
+                                        board_state_piece_lifted
+                                    )
                                     board_state_captured_piece = board_status
                     piece_diff = num_pieces - curr_pieces
                     print(
                         "Piece diff: %s, Piece removed: %s, Capture detected: %s, move_complete_flag: %s, game_mode: %s"
-                        % (piece_diff, piece_removed, capture_flag, move_complete_flag, game_mode)
+                        % (
+                            piece_diff,
+                            piece_removed,
+                            capture_flag,
+                            move_complete_flag,
+                            game_mode,
+                        )
                     )
 
                     print("board status: %s" % board_status)
                     if board_status != prev_board_status and piece_diff == 0:
                         is_legal_move = False
-                        if game_mode == MODE_VS_CPU and game.turn == cpu_2p_remote_side and uci_player_wait_flag and cpu_2p_remote_has_moved:
-                            move = chessboard.detect_move_positions(prev_board_status, board_status)
+                        if (
+                            game_mode == MODE_VS_CPU
+                            and game.turn == cpu_2p_remote_side
+                            and uci_player_wait_flag
+                            and cpu_2p_remote_has_moved
+                        ):
+                            move = chessboard.detect_move_positions(
+                                prev_board_status, board_status
+                            )
                             if potential_castle and is_castling:
-                                if chessboard.check_castling_positions(game.turn, castling_side, board_status):
+                                if chessboard.check_castling_positions(
+                                    game.turn, castling_side, board_status
+                                ):
                                     is_legal_move = True
                             elif uci_move[2:] == move[1]:
                                 print("Move matches CPU move")
                                 is_legal_move = True
                             else:
                                 print("Move does not match CPU move")
-                                chessboard_led.show_illegal_piece_lifted(piece_coordinate, game)
+                                chessboard_led.show_illegal_piece_lifted(
+                                    piece_coordinate, game
+                                )
                         else:
-                            move = chessboard.detect_move_positions(prev_board_status, board_status)
+                            move = chessboard.detect_move_positions(
+                                prev_board_status, board_status
+                            )
                             move_notation = "%s-%s" % move
                             if move_notation in legal_moves:
                                 print("Move is legal")
@@ -1000,34 +1163,58 @@ async def event_listener():
                                         print("The move is a castling move")
                                         is_castling = True
                                         castling_complete_flag = False
-                                        castling_side = "K" if move[1] in ["g1", "g8"] else "Q"
+                                        castling_side = (
+                                            "K" if move[1] in ["g1", "g8"] else "Q"
+                                        )
                                 else:
                                     print("King may not castle")
                                     is_legal_move = False
 
-                                in_castle_position = chessboard.check_castling_positions(game.turn, castling_side,
-                                                                                         board_status)
+                                in_castle_position = (
+                                    chessboard.check_castling_positions(
+                                        game.turn, castling_side, board_status
+                                    )
+                                )
 
                                 if in_castle_position:
-                                    print("The king and rook is in the castling position")
+                                    print(
+                                        "The king and rook is in the castling position"
+                                    )
                                     is_legal_move = True
                         if is_legal_move:
                             print("Move completed")
 
-                            if potential_castle and is_castling and not castling_complete_flag and not finish_castling_flag:
+                            if (
+                                potential_castle
+                                and is_castling
+                                and not castling_complete_flag
+                                and not finish_castling_flag
+                            ):
                                 print("Move recognized as castling")
-                                if chessboard.check_castling_positions(game.turn, castling_side, board_status):
-                                    move_notation = "O-O" if castling_side == "K" else "O-O-O"
+                                if chessboard.check_castling_positions(
+                                    game.turn, castling_side, board_status
+                                ):
+                                    move_notation = (
+                                        "O-O" if castling_side == "K" else "O-O-O"
+                                    )
                                     print("move: %s" % move_notation)
-                                    print("Waiting for the rook to be moved in place for castling")
+                                    print(
+                                        "Waiting for the rook to be moved in place for castling"
+                                    )
                                     await tft.send_command("page finish_castle")
                                     castling_complete_flag = False
                                     finish_castling_flag = True
                                     if game.turn == "w":
-                                        move_notation = "h1-f1" if castling_side == "K" else "a1-d1"
+                                        move_notation = (
+                                            "h1-f1" if castling_side == "K" else "a1-d1"
+                                        )
                                     else:
-                                        move_notation = "h8-f8" if castling_side == "K" else "a8-d8"
-                                    chessboard_led.show_interim_move(move_notation, game.turn)
+                                        move_notation = (
+                                            "h8-f8" if castling_side == "K" else "a8-d8"
+                                        )
+                                    chessboard_led.show_interim_move(
+                                        move_notation, game.turn
+                                    )
                                     # chessboard_led.show_interim_move(move_notation, game.turn)
                                     # chessboard.update_castling_move(game.turn, castling_side)
                                     # potential_castle = False
@@ -1035,7 +1222,9 @@ async def event_listener():
                                     # castling_side = None
                             else:
                                 move_complete_flag = True
-                                move = chessboard.detect_move_positions(prev_board_status, board_status)
+                                move = chessboard.detect_move_positions(
+                                    prev_board_status, board_status
+                                )
                                 move_notation = "%s-%s" % move
                                 original_position = move[0]
                                 print("%s-%s" % move)
@@ -1043,14 +1232,25 @@ async def event_listener():
                                 final_move_board_status = board_status
                                 final_num_pieces = num_pieces
                                 final_move = move
-                                chessboard_led.show_interim_move(move_notation, game.turn)
+                                chessboard_led.show_interim_move(
+                                    move_notation, game.turn
+                                )
                         else:
                             print("Move is illegal")
-                            chessboard_led.show_illegal_piece_lifted(piece_coordinate, game)
-                    elif board_status != prev_board_status and piece_diff == -1 and capture_flag and piece_removed:
+                            chessboard_led.show_illegal_piece_lifted(
+                                piece_coordinate, game
+                            )
+                    elif (
+                        board_status != prev_board_status
+                        and piece_diff == -1
+                        and capture_flag
+                        and piece_removed
+                    ):
                         print("Piece captured")
                         move = chessboard.detect_capture_move_positions(
-                            prev_board_status, board_state_capturing_piece, board_state_captured_piece
+                            prev_board_status,
+                            board_state_capturing_piece,
+                            board_state_captured_piece,
                         )
                         move_notation = "%sx%s" % move
                         original_position = move[0]
@@ -1079,7 +1279,12 @@ async def event_listener():
                         position_changed_flag = False
                         potential_castle = False
                         is_castling = False
-                        if game_mode == MODE_VS_CPU and game.turn == cpu_2p_remote_side and uci_player_wait_flag and cpu_2p_remote_has_moved:
+                        if (
+                            game_mode == MODE_VS_CPU
+                            and game.turn == cpu_2p_remote_side
+                            and uci_player_wait_flag
+                            and cpu_2p_remote_has_moved
+                        ):
                             chessboard_led.show_interim_move(uci_move, game.turn)
                         else:
                             chessboard_led.show_occupied_squares(chessboard)
@@ -1241,7 +1446,9 @@ async def main():
 
     # Set up interrupters
     io_interrupt.irq(trigger=machine.Pin.IRQ_FALLING, handler=io_expander_callback)
-    print("%s interrupt set up, current state: %s" % (io_interrupt, io_interrupt.value()))
+    print(
+        "%s interrupt set up, current state: %s" % (io_interrupt, io_interrupt.value())
+    )
 
     # Set up interrupter for tactile switch
     button_white.irq(trigger=machine.Pin.IRQ_FALLING, handler=button_callback)

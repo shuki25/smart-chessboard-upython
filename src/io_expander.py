@@ -24,8 +24,8 @@ class IOExpander:
             raise Exception("uart is not an I2C object")
         self.i2c = i2c
         self.address = address
-        self.i2c.writeto_mem(self.address, CONFIGURATION_PORT_0_REG, bytearray([0xff]))
-        self.i2c.writeto_mem(self.address, CONFIGURATION_PORT_1_REG, bytearray([0xff]))
+        self.i2c.writeto_mem(self.address, CONFIGURATION_PORT_0_REG, bytearray([0xFF]))
+        self.i2c.writeto_mem(self.address, CONFIGURATION_PORT_1_REG, bytearray([0xFF]))
 
     def read_input_port(self):
         data = self.i2c.readfrom_mem(self.address, INPUT_PORT_0_REG, 2)
@@ -46,10 +46,14 @@ class IOExpander:
         self.i2c.writeto_mem(self.address, OUTPUT_PORT_1_REG, bytearray([value]))
 
     def polarity_inversion_port_0(self, value):
-        self.i2c.writeto_mem(self.address, POLARITY_INVERSION_PORT_0_REG, bytearray([value]))
+        self.i2c.writeto_mem(
+            self.address, POLARITY_INVERSION_PORT_0_REG, bytearray([value])
+        )
 
     def polarity_inversion_port_1(self, value):
-        self.i2c.writeto_mem(self.address, POLARITY_INVERSION_PORT_1_REG, bytearray([value]))
+        self.i2c.writeto_mem(
+            self.address, POLARITY_INVERSION_PORT_1_REG, bytearray([value])
+        )
 
     def configuration_port_0(self, value):
         self.i2c.writeto_mem(self.address, CONFIGURATION_PORT_0_REG, bytearray([value]))

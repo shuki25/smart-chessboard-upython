@@ -45,20 +45,20 @@ def parse_info(info: str) -> dict:
     while i < size:
         item = info_list[i]
         if item == "score":
-            info_dict["score"] = info_list[i+1] + " " + info_list[i+2]
+            info_dict["score"] = info_list[i + 1] + " " + info_list[i + 2]
             i += 3
             continue
         elif item == "upperbound":
             i += 1
             continue
         elif item == "string":
-            info_dict["string"] = " ".join(info_list[i+1:])
+            info_dict["string"] = " ".join(info_list[i + 1 :])
             break
         elif item != "pv":
-            info_dict[item] = info_list[i+1]
+            info_dict[item] = info_list[i + 1]
             i += 2
         else:
-            info_dict["pv"] = " ".join(info_list[i+1:])
+            info_dict["pv"] = " ".join(info_list[i + 1 :])
             break
 
     return info_dict
@@ -70,6 +70,7 @@ class UCI:
 
     This class implements the UCI protocol for communicating with chess engines.
     """
+
     reader: asyncio.StreamReader
     writer: asyncio.StreamWriter
     connected: bool
@@ -91,7 +92,6 @@ class UCI:
         self.port = port
         self.level = level
 
-
     def set_game_level(self, level: int):
         # Send the "setoption" command to the chess engine.
         self.writer.write(b"setoption name Skill Level value %d\n" % self.level)
@@ -100,12 +100,15 @@ class UCI:
         err_prob = round((level * 6.35) + 1)
         max_err = round((level * -0.5) + 10)
 
-        self.writer.write(b"setoption name Skill Level Maximum Error value %d\n" % max_err)
+        self.writer.write(
+            b"setoption name Skill Level Maximum Error value %d\n" % max_err
+        )
         print("Sent: setoption name Skill Level Maximum Error value %d" % max_err)
 
-        self.writer.write(b"setoption name Skill Level Probability value %d\n" % err_prob)
+        self.writer.write(
+            b"setoption name Skill Level Probability value %d\n" % err_prob
+        )
         print("Sent: setoption name Skill Level Probability value %d" % err_prob)
-
 
     async def start(self):
         """
@@ -175,8 +178,9 @@ class UCI:
         # Send the "go" command to the chess engine.
         self.writer.write(b"go depth %d movetime %d\n" % (depth, movetime))
 
-    async def engine_response(self, match_string: list = None, timeout: int = 0.2) \
-            -> str or None:
+    async def engine_response(
+        self, match_string: list = None, timeout: int = 0.2
+    ) -> str or None:
         """
         Read the response from the chess engine.
         """
@@ -184,7 +188,9 @@ class UCI:
         if len(match_string):
             while True:
                 try:
-                    response = await asyncio.wait_for(self.reader.readline(), timeout=timeout)
+                    response = await asyncio.wait_for(
+                        self.reader.readline(), timeout=timeout
+                    )
                     clean_response = response.decode().strip()
                     print("Received: %s" % clean_response)
                 except asyncio.TimeoutError:
@@ -201,4 +207,3 @@ class UCI:
                 clean_response = None
 
         return clean_response
-

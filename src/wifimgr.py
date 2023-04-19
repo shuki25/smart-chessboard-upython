@@ -8,8 +8,8 @@ ap_ssid = "Smart Chessboard Setup"
 ap_password = "chess123"
 ap_authmode = 3  # WPA2
 
-NETWORK_PROFILES = 'wifi.dat'
-SD_NETWORK_PROFILES = '/sd/wifi.txt'
+NETWORK_PROFILES = "wifi.dat"
+SD_NETWORK_PROFILES = "/sd/wifi.txt"
 
 wlan_ap = network.WLAN(network.AP_IF)
 wlan_sta = network.WLAN(network.STA_IF)
@@ -51,11 +51,22 @@ def get_connection(sd_available=False):
             wlan_sta.active(True)
             networks = wlan_sta.scan()
 
-            AUTHMODE = {0: "open", 1: "WEP", 2: "WPA-PSK", 3: "WPA2-PSK", 4: "WPA/WPA2-PSK"}
-            for ssid, bssid, channel, rssi, authmode, hidden in sorted(networks, key=lambda x: x[3], reverse=True):
-                ssid = ssid.decode('utf-8')
+            AUTHMODE = {
+                0: "open",
+                1: "WEP",
+                2: "WPA-PSK",
+                3: "WPA2-PSK",
+                4: "WPA/WPA2-PSK",
+            }
+            for ssid, bssid, channel, rssi, authmode, hidden in sorted(
+                networks, key=lambda x: x[3], reverse=True
+            ):
+                ssid = ssid.decode("utf-8")
                 encrypted = authmode > 0
-                print("ssid: %s chan: %d rssi: %d authmode: %s" % (ssid, channel, rssi, AUTHMODE.get(authmode, '?')))
+                print(
+                    "ssid: %s chan: %d rssi: %d authmode: %s"
+                    % (ssid, channel, rssi, AUTHMODE.get(authmode, "?"))
+                )
                 if encrypted:
                     if ssid in profiles:
                         password = profiles[ssid]
@@ -96,7 +107,7 @@ def read_profiles_from_sd():
     try:
         with open(SD_NETWORK_PROFILES) as f:
             data = ujson.load(f)
-            profiles[data['SSID']] = data['PASSWORD']
+            profiles[data["SSID"]] = data["PASSWORD"]
         return profiles
     except OSError as e:
         print("exception", str(e))
@@ -108,33 +119,33 @@ def write_profiles(profiles):
     for ssid, password in profiles.items():
         lines.append("%s;%s\n" % (ssid, password))
     with open(NETWORK_PROFILES, "w") as f:
-        f.write(''.join(lines))
+        f.write("".join(lines))
 
 
 def do_connect(ssid, password):
     wlan_sta.active(True)
     if wlan_sta.isconnected():
         return None
-    print('Trying to connect to %s...' % ssid)
+    print("Trying to connect to %s..." % ssid)
     wlan_sta.connect(ssid, password)
     for retry in range(100):
         connected = wlan_sta.isconnected()
         if connected:
             break
         time.sleep(0.1)
-        print('.', end='')
+        print(".", end="")
     if connected:
-        print('\nConnected. Network config: ', wlan_sta.ifconfig())
+        print("\nConnected. Network config: ", wlan_sta.ifconfig())
     else:
-        print('\nFailed. Not Connected to: ' + ssid)
+        print("\nFailed. Not Connected to: " + ssid)
     return connected
 
 
-def send_header(client, status_code=200, content_length=None ):
+def send_header(client, status_code=200, content_length=None):
     client.sendall("HTTP/1.0 {} OK\r\n".format(status_code))
     client.sendall("Content-Type: text/html\r\n")
     if content_length is not None:
-      client.sendall("Content-Length: {}\r\n".format(content_length))
+        client.sendall("Content-Length: {}\r\n".format(content_length))
     client.sendall("\r\n")
 
 
@@ -148,9 +159,10 @@ def send_response(client, payload, status_code=200):
 
 def handle_root(client):
     wlan_sta.active(True)
-    ssids = sorted(ssid.decode('utf-8') for ssid, *_ in wlan_sta.scan())
+    ssids = sorted(ssid.decode("utf-8") for ssid, *_ in wlan_sta.scan())
     send_header(client)
-    client.sendall("""\
+    client.sendall(
+        """\
         <html>
             <h1 style="color: #5e9ca0; text-align: center;">
                 <span style="color: #ff0000;">
@@ -160,17 +172,23 @@ def handle_root(client):
             <form action="configure" method="post">
                 <table style="margin-left: auto; margin-right: auto;">
                     <tbody>
-    """)
+    """
+    )
     while len(ssids):
         ssid = ssids.pop(0)
-        client.sendall("""\
+        client.sendall(
+            """\
                         <tr>
                             <td colspan="2">
                                 <input type="radio" name="ssid" value="{0}" />{0}
                             </td>
                         </tr>
-        """.format(ssid))
-    client.sendall("""\
+        """.format(
+                ssid
+            )
+        )
+    client.sendall(
+        """\
                         <tr>
                             <td>Password:</td>
                             <td><input name="password" type="password" /></td>
@@ -205,7 +223,9 @@ def handle_root(client):
                 </li>
             </ul>
         </html>
-    """ % dict(filename=NETWORK_PROFILES))
+    """
+        % dict(filename=NETWORK_PROFILES)
+    )
     client.close()
 
 
@@ -218,7 +238,9 @@ def handle_configure(client, request):
     # version 1.9 compatibility
     try:
         ssid = match.group(1).decode("utf-8").replace("%3F", "?").replace("%21", "!")
-        password = match.group(2).decode("utf-8").replace("%3F", "?").replace("%21", "!")
+        password = (
+            match.group(2).decode("utf-8").replace("%3F", "?").replace("%21", "!")
+        )
     except Exception:
         ssid = match.group(1).replace("%3F", "?").replace("%21", "!")
         password = match.group(2).replace("%3F", "?").replace("%21", "!")
@@ -240,7 +262,9 @@ def handle_configure(client, request):
                     <br><br>
                 </center>
             </html>
-        """ % dict(ssid=ssid)
+        """ % dict(
+            ssid=ssid
+        )
         send_response(client, response)
         try:
             profiles = read_profiles()
@@ -267,7 +291,9 @@ def handle_configure(client, request):
                     </form>
                 </center>
             </html>
-        """ % dict(ssid=ssid)
+        """ % dict(
+            ssid=ssid
+        )
         send_response(client, response)
         return False
 
@@ -287,7 +313,7 @@ def stop():
 def start(port=80):
     global server_socket
 
-    addr = socket.getaddrinfo('0.0.0.0', port)[0][-1]
+    addr = socket.getaddrinfo("0.0.0.0", port)[0][-1]
 
     stop()
 
@@ -300,16 +326,16 @@ def start(port=80):
     server_socket.bind(addr)
     server_socket.listen(1)
 
-    print('Connect to WiFi ssid ' + ap_ssid + ', default password: ' + ap_password)
-    print('and access the ESP via your favorite web browser at 192.168.4.1.')
-    print('Listening on:', addr)
+    print("Connect to WiFi ssid " + ap_ssid + ", default password: " + ap_password)
+    print("and access the ESP via your favorite web browser at 192.168.4.1.")
+    print("Listening on:", addr)
 
     while True:
         if wlan_sta.isconnected():
             return True
 
         client, addr = server_socket.accept()
-        print('client connected from', addr)
+        print("client connected from", addr)
         try:
             client.settimeout(5.0)
 
@@ -326,9 +352,18 @@ def start(port=80):
 
             # version 1.9 compatibility
             try:
-                url = ure.search("(?:GET|POST) /(.*?)(?:\\?.*?)? HTTP", request).group(1).decode("utf-8").rstrip("/")
+                url = (
+                    ure.search("(?:GET|POST) /(.*?)(?:\\?.*?)? HTTP", request)
+                    .group(1)
+                    .decode("utf-8")
+                    .rstrip("/")
+                )
             except Exception:
-                url = ure.search("(?:GET|POST) /(.*?)(?:\\?.*?)? HTTP", request).group(1).rstrip("/")
+                url = (
+                    ure.search("(?:GET|POST) /(.*?)(?:\\?.*?)? HTTP", request)
+                    .group(1)
+                    .rstrip("/")
+                )
             print("URL is {}".format(url))
 
             if url == "":

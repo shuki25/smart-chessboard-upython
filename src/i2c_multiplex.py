@@ -7,7 +7,7 @@ class I2CMultiplex:
 
     address = 0x70
     i2c = None
-    
+
     def __init__(self, i2c, address):
         if isinstance(i2c, machine.I2C):
             self.i2c = i2c
@@ -23,7 +23,7 @@ class I2CMultiplex:
     def activate_channel(self, channel):
         if channel > 7:
             raise Exception("Channel must be between 0 and 7")
-        self.i2c.writeto(self.address, self.channel_bits[channel].to_bytes(1, 'little'))
+        self.i2c.writeto(self.address, self.channel_bits[channel].to_bytes(1, "little"))
 
     def activate_channels(self, channel: list):
         channel_mask = 0x00
@@ -32,4 +32,4 @@ class I2CMultiplex:
                 raise Exception("Channel must be between 0 and 7")
             else:
                 channel_mask |= self.channel_bits[i]
-        self.i2c.writeto(self.address, channel_mask.to_bytes(1, 'little'))
+        self.i2c.writeto(self.address, channel_mask.to_bytes(1, "little"))

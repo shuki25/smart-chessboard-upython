@@ -63,7 +63,12 @@ IO_EXPANDER_TILE = [
     0x0800,
 ]
 
-IO_EXPANDER_LIST = [IO_EXPANDER_0_ADDRESS, IO_EXPANDER_1_ADDRESS, IO_EXPANDER_2_ADDRESS, IO_EXPANDER_3_ADDRESS]
+IO_EXPANDER_LIST = [
+    IO_EXPANDER_0_ADDRESS,
+    IO_EXPANDER_1_ADDRESS,
+    IO_EXPANDER_2_ADDRESS,
+    IO_EXPANDER_3_ADDRESS,
+]
 IO_EXPANDER_MASK = [0xFFFF, 0xFFFF0000, 0xFFFF00000000, 0xFFFF000000000000]
 IO_EXPANDER_SHIFT = [0, 16, 32, 48]
 
@@ -187,16 +192,18 @@ class Chessboard:
             shift_data = data << IO_EXPANDER_SHIFT[i]
             self.board_status |= shift_data
         for square in self.board_coords.keys():
-            data = (self.board_status & IO_EXPANDER_MASK[self.board_coords[square][0]]) >> IO_EXPANDER_SHIFT[
-                self.board_coords[square][0]
-            ]
+            data = (
+                self.board_status & IO_EXPANDER_MASK[self.board_coords[square][0]]
+            ) >> IO_EXPANDER_SHIFT[self.board_coords[square][0]]
             board_idx = self.algebraic_to_board_index(square)
             if data & self.board_coords[square][1]:
                 self.bitboard[board_idx] = 1
             else:
                 self.bitboard[board_idx] = 0
 
-    def delta_board_positions(self, previous_board_status: int, current_board_status: int = None):
+    def delta_board_positions(
+        self, previous_board_status: int, current_board_status: int = None
+    ):
         """
         Determine the number of board positions that changed between two board states
 
@@ -410,7 +417,9 @@ class Chessboard:
             else:
                 return "e8", "c8"
 
-    def detect_capture_move_positions(self, prev_state, capturing_state, captured_state):
+    def detect_capture_move_positions(
+        self, prev_state, capturing_state, captured_state
+    ):
         """
         Detect the positions of a piece captured from old position to new position
 

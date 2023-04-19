@@ -217,7 +217,9 @@ class Nextion:
         elif isinstance(value, int):
             out_value = str(value)
         else:
-            raise AssertionError('value type "%s" is not supported for set' % type(value).__name__)
+            raise AssertionError(
+                'value type "%s" is not supported for set' % type(value).__name__
+            )
 
         prepare_command = bytearray(key.encode("iso-8859-1") + b"=") + out_value + EOL
         await self.lock.acquire()

@@ -81,7 +81,9 @@ class AmbientLightSensor:
         self.address = address
 
         # Set to default settings
-        self.i2c.writeto_mem(self.address, ALS_CONTROL, bytearray([ALS_CONTROL_ENABLE_MASK]))
+        self.i2c.writeto_mem(
+            self.address, ALS_CONTROL, bytearray([ALS_CONTROL_ENABLE_MASK])
+        )
         self.i2c.writeto_mem(self.address, ALS_MEAS_RES, bytearray([ALS_MEAS_DEFAULT]))
         self.i2c.writeto_mem(self.address, ALS_GAIN, bytearray([ALS_GAIN_3X]))
 
@@ -126,13 +128,19 @@ class AmbientLightSensor:
         return True if data[0] & ALS_CONTROL_ENABLE_MASK else False
 
     def enable(self):
-        self.i2c.writeto_mem(self.address, ALS_CONTROL, bytearray([ALS_CONTROL_ENABLE_MASK]))
+        self.i2c.writeto_mem(
+            self.address, ALS_CONTROL, bytearray([ALS_CONTROL_ENABLE_MASK])
+        )
 
     def disable(self):
-        self.i2c.writeto_mem(self.address, ALS_CONTROL, bytearray([ALS_CONTROL_DISABLE]))
+        self.i2c.writeto_mem(
+            self.address, ALS_CONTROL, bytearray([ALS_CONTROL_DISABLE])
+        )
 
     def reset(self):
-        self.i2c.writeto_mem(self.address, ALS_CONTROL, bytearray([ALS_CONTROL_RESET_MASK]))
+        self.i2c.writeto_mem(
+            self.address, ALS_CONTROL, bytearray([ALS_CONTROL_RESET_MASK])
+        )
 
     def read_measurement_resolution(self):
         data = self.i2c.readfrom_mem(self.address, ALS_MEAS_RES, 1)
@@ -197,11 +205,15 @@ class AmbientLightSensor:
         return data[0] | (data[1] << 8) | (data[2] << 16)
 
     def set_interrupt_threshold_upper(self, threshold):
-        data = bytearray([threshold & 0xFF, (threshold >> 8) & 0xFF, (threshold >> 16) & 0xFF])
+        data = bytearray(
+            [threshold & 0xFF, (threshold >> 8) & 0xFF, (threshold >> 16) & 0xFF]
+        )
         self.i2c.writeto_mem(self.address, ALS_THRES_UP_0, data)
 
     def set_interrupt_threshold_lower(self, threshold):
-        data = bytearray([threshold & 0xFF, (threshold >> 8) & 0xFF, (threshold >> 16) & 0xFF])
+        data = bytearray(
+            [threshold & 0xFF, (threshold >> 8) & 0xFF, (threshold >> 16) & 0xFF]
+        )
         self.i2c.writeto_mem(self.address, ALS_THRES_LOW_0, data)
 
     def adjust_interrupt_threshold_range(self, percentage):
