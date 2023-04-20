@@ -25,6 +25,10 @@ except ImportError:
     import asyncio
 
 
+def map_range(x, in_min, in_max, out_min, out_max):
+    return (x - in_min) * (out_max - out_min) // (in_max - in_min) + out_min
+
+
 def parse_info(info: str) -> dict:
     """
     Parse the "info" command from the chess engine.
@@ -74,6 +78,7 @@ class UCI:
     reader: asyncio.StreamReader
     writer: asyncio.StreamWriter
     connected: bool
+    no_response_counter: int
 
     def __init__(self, host: str, port: int = 9999, level: int = 1):
         """
@@ -91,14 +96,15 @@ class UCI:
         self.host = host
         self.port = port
         self.level = level
+        self.no_response_counter = 0
 
     def set_game_level(self, level: int):
         # Send the "setoption" command to the chess engine.
         self.writer.write(b"setoption name Skill Level value %d\n" % self.level)
         print("Sent: setoption name Skill Level value %d" % self.level)
 
-        err_prob = round((level * 6.35) + 1)
-        max_err = round((level * -0.5) + 10)
+        err_prob = map_range(level, 1, 20, 900, 10)
+        max_err = map_range(level, 1, 20, 150, 5)
 
         self.writer.write(
             b"setoption name Skill Level Maximum Error value %d\n" % max_err
@@ -199,6 +205,15 @@ class UCI:
                     for word in match_string:
                         if clean_response.startswith(word):
                             return clean_response
+                else:
+                    self.no_response_counter += 1
+                    if self.no_response_counter > 5:
+                        print("No response from engine, reconnecting...")
+                        await self.stop()
+                        await self.start()
+                        print("Engine is reconnected.")
+                        self.no_response_counter = 0
+                        return None
         else:
             try:
                 response = await asyncio.wait_for(self.reader.readline(), timeout=0.2)
