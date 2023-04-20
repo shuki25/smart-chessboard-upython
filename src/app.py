@@ -654,7 +654,10 @@ async def event_listener():
                     and not cpu_2p_remote_has_moved
                 ):
                     response = await uci_player.engine_response(["info", "bestmove"])
-                    if response.startswith("bestmove"):
+                    if response is None:
+                        print("No response received from engine, retrying...")
+                        uci_player_wait_flag = False
+                    elif response.startswith("bestmove"):
                         cpu_2p_remote_has_moved = True
                         uci_move = response.split(" ")[1]
                         cpu_move = "CPU move: {}".format(uci_move)
@@ -1009,7 +1012,12 @@ async def event_listener():
                                 and uci_player_wait_flag
                                 and cpu_2p_remote_has_moved
                             ):
-                                if piece_coordinate[:2] == uci_move[:2]:
+                                if potential_castle and piece_coordinate[:2] in [
+                                    "e1",
+                                    "e8",
+                                ]:
+                                    print("Castling move matches CPU move")
+                                elif piece_coordinate[:2] == uci_move[:2]:
                                     print("Piece lifted matches CPU move")
                                     chessboard_led.show_cpu_remote_move(
                                         uci_move, game.turn
@@ -1133,10 +1141,41 @@ async def event_listener():
                             move = chessboard.detect_move_positions(
                                 prev_board_status, board_status
                             )
-                            if potential_castle and is_castling:
-                                if chessboard.check_castling_positions(
-                                    game.turn, castling_side, board_status
-                                ):
+                            print("Move: %s-%s" % move)
+                            if potential_castle and piece_identifier in "Kk":
+                                castling_side = None
+                                if game.can_king_castle(game.turn):
+                                    print("King may castle")
+                                    if move[1] in ["g1", "g8", "c1", "c8"]:
+                                        print("The move is a castling move")
+                                        is_castling = True
+                                        castling_complete_flag = False
+                                        castling_side = (
+                                            "K" if move[1] in ["g1", "g8"] else "Q"
+                                        )
+                                    else:
+                                        print("The move is not a castling move")
+                                        is_legal_move = uci_move[2:] == move[1]
+                                        print("Move matches CPU move")
+                                else:
+                                    if move[1] in ["g1", "g8", "c1", "c8"]:
+                                        print("The move is a castling move but the king cannot castle")
+                                        is_legal_move = False
+                                    else:
+                                        print("The move is not a castling move")
+                                        is_legal_move = uci_move[2:] == move[1]
+                                        print("Move matches CPU move")
+
+                                in_castle_position = (
+                                    chessboard.check_castling_positions(
+                                        game.turn, castling_side, board_status
+                                    )
+                                )
+
+                                if in_castle_position:
+                                    print(
+                                        "UCI: The king and rook is in the castling position"
+                                    )
                                     is_legal_move = True
                             elif uci_move[2:] == move[1]:
                                 print("Move matches CPU move")
