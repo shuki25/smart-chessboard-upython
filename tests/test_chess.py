@@ -381,3 +381,37 @@ def test_all_legal_moves_for_various_positions():
     with check:
         moves = board.all_legal_moves("w")
         assert len(moves) == 9
+
+
+def test_pgn():
+    with check:
+        board.reset_board()
+        board.make_move("e2-e4")
+        assert board.get_pgn(test=True).strip() == "1. e2e4"
+        board.make_move("d7-d5")
+        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5"
+    with check:
+        board.make_move("e4-e5")
+        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5"
+        board.make_move("f7-f5")
+        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5"
+    with check:
+        board.make_move("e5xf6e.p.")
+        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6"
+        board.make_move("g7xf6")
+        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6"
+    with check:
+        board.make_move("g1-f3")
+        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3"
+        board.make_move("g8-h6")
+        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6"
+    with check:
+        board.make_move("f1-d3")
+        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6 5. f1d3"
+        board.make_move("f8-g7")
+        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6 5. f1d3 f8g7"
+    with check:
+        board.make_move("O-O")
+        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6 5. f1d3 f8g7 6. O-O"
+        board.make_move("O-O")
+        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6 5. f1d3 f8g7 6. O-O O-O"

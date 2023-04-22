@@ -450,23 +450,46 @@ class Chess:
         fen += " " + str(self.halfmove) + " " + str(self.fullmove)
         return fen
 
-    def get_pgn(self, moves: list = None, result: str = "*"):
+    def get_pgn(self, moves: list = None, result: str = "*", headers: dict = None, test: bool = False):
         """
         Return the PGN string representing the current game state.
 
         :param moves: list of moves to include in the PGN string
         :param result: result of the game
+        :param headers: dictionary of PGN headers
+        :param test: whether or not the PGN string is being generated for testing purposes
 
         :return: the PGN string representing the current game state
         """
         if moves is None:
             moves = self.history
-        pgn = '[Event "?"]\n[Site "?"]\n[Date "?"]\n[Round "?"]\n[White "?"]\n[Black "?"]\n'
+
+        if headers is None:
+            pgn = '[Event "?"]\n[Site "?"]\n[Date "?"]\n[Round "?"]\n[White "?"]\n[Black "?"]\n'
+        else:
+            pgn = ""
+            for key in headers:
+                pgn += '[{} "{}"]\n'.format(key, headers[key])
         pgn += '[Result "{}"]\n\n'.format(result)
+
+        if test:
+            pgn = ""
+
         for i in range(len(moves)):
-            pgn += str(i + 1) + ". " + str(moves[i][0]) + " " + str(moves[i][1]) + " "
-            pgn += moves[i] + " "
-        pgn += result
+            if i % 6 == 0 and i != 0:
+                pgn += "\n"
+            notation = ["", ""]
+            for j in range(2):
+                if moves[i][j] not in ["O-O", "O-O-O"]:
+                    move = str(moves[i][j])
+                    notation[j] = move.replace("-", "")
+                    notation[j] = notation[j].replace("e.p.", "")
+                else:
+                    notation[j] = moves[i][j]
+            pgn += str(i + 1) + ". " + str(notation[0]) + " " + str(notation[1]) + " "
+
+        if not test:
+            pgn += " " + result
         return pgn
 
     def get_board(self, board: list = None):
@@ -576,7 +599,7 @@ class Chess:
 
         :return: None
         """
-        print("Updating turn")
+        debug("Updating turn")
         next_turn = "b" if self.turn == "w" else "w"
 
         self.check_flag = False
@@ -633,12 +656,12 @@ class Chess:
             else:
                 self.halfmove += 1
 
-        print("check_flag: {}".format(self.check_flag))
-        print("checkmate_flag: {}".format(self.checkmate_flag))
-        print("stalemate_flag: {}".format(self.stalemate_flag))
-        print("game_over_flag: {}".format(self.game_over_flag))
-        print("enpassant: {}".format(self.enpassant))
-        print("turn: {}".format(self.turn))
+        debug("check_flag: {}".format(self.check_flag))
+        debug("checkmate_flag: {}".format(self.checkmate_flag))
+        debug("stalemate_flag: {}".format(self.stalemate_flag))
+        debug("game_over_flag: {}".format(self.game_over_flag))
+        debug("enpassant: {}".format(self.enpassant))
+        debug("turn: {}".format(self.turn))
 
     def get_move_history(self, num_moves: int = 0):
         """

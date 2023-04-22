@@ -199,6 +199,89 @@ async def console_move_history(
     )
 
 
+def format_rtc_datetime(rtc: machine.RTC):
+    """
+    Format the RTC datetime into a string
+
+    :param rtc: machine.RTC object
+    :return:
+        date (str): formatted date string
+        time (str): formatted time string
+    """
+    if rtc is None:
+        rtc = machine.RTC()
+
+    current_time = rtc.datetime()
+    date = "%04d.%02d.%02d" % (current_time[0], current_time[1], current_time[2])
+
+    if is_24h:
+        time = "%02d:%02d:%02d" % (current_time[4], current_time[5], current_time[6])
+    else:
+        if current_time[4] > 12:
+            time = "%02d:%02d:%02d PM" % (
+                current_time[4] - 12,
+                current_time[5],
+                current_time[6],
+            )
+        else:
+            time = "%02d:%02d:%02d AM" % (
+                current_time[4],
+                current_time[5],
+                current_time[6],
+            )
+
+    return date, time
+
+
+async def save_game_history_to_sd(
+    the_game: Chess, result: str = "*", headers: dict = None
+):
+    """
+    Save the game history to the SD card
+
+    :param the_game: the game object
+    :param result: the result of the game
+    :param headers: the game header
+    :return: None
+    """
+
+    global sd_card_mounted
+    global sd_card_detect
+
+    # sd_card_detect is LOW when the card is inserted
+    if sd_card_detect.value():
+        print("sd card not detected")
+        return
+
+    if not sd_card_detect.value() and sd_card_mounted:
+        print("sd card is mounted")
+        try:
+            dir_list = os.listdir("/sd")
+            if "games" not in dir_list:
+                os.mkdir("/sd/games")
+            if "game_counter.txt" not in dir_list:
+                with open("/sd/game_counter.txt", "w") as f:
+                    f.write("0")
+            with open("/sd/game_counter.txt", "r") as f:
+                game_counter = f.read()
+                game_counter = int(game_counter.strip())
+                game_counter += 1
+
+        except OSError as e:
+            print("error: %s" % e)
+            return
+
+        try:
+            with open("/sd/games/game_%d.pgn" % game_counter, "w") as f:
+                f.write(the_game.get_pgn(result=result, headers=headers))
+            with open("/sd/game_counter.txt", "w") as f:
+                print("new game counter: %d" % game_counter)
+                f.write(str(game_counter))
+        except OSError as e:
+            print("error writing to PGN file: %s" % e)
+            return
+
+
 async def event_listener():
     global tft, queue, lock, rtc, game
     global io_expander_interrupt_flag, chessboard, board, board_status, i2c
@@ -272,6 +355,8 @@ async def event_listener():
     game_end_flag = False
     game_progress_page_id = 0
     piece_diff = 0
+    game_result = "*"
+    pgn_headers = None
 
     white_clock.clear()
     black_clock.clear()
@@ -305,6 +390,7 @@ async def event_listener():
 
             # Start game vs CPU
             if (page == 16 and component == 2) or (page == 16 and component == 15):
+                current_date, current_time = format_rtc_datetime(rtc)
                 game_mode = MODE_VS_CPU
                 game_progress_page_id = 6
                 in_game_mode = True
@@ -318,9 +404,25 @@ async def event_listener():
                 if cpu_2p_remote_side == "w":
                     white_clock_time = 600
                     black_clock_time = 900
+                    pgn_headers = {
+                        "White": "Human",
+                        "Black": "CPU",
+                        "Event": "Game vs CPU",
+                        "Site": "Imagine RIT",
+                        "Date": "%s" % current_date,
+                        "Time": "%s" % current_time,
+                    }
                 else:
                     white_clock_time = 900
                     black_clock_time = 600
+                    pgn_headers = {
+                        "White": "Human",
+                        "Black": "CPU",
+                        "Event": "Game vs CPU",
+                        "Site": "Imagine RIT",
+                        "Date": "%s" % current_date,
+                        "Time": "%s" % current_time,
+                    }
                 cpu_level = await tft.get_value("start_cpu.level.val")
                 print("CPU level: %s" % cpu_level)
                 await tft.send_command("page connect_cpu")
@@ -336,6 +438,7 @@ async def event_listener():
 
             # Start game vs human
             if page == 4 and component == 3:
+                current_date, current_time = format_rtc_datetime(rtc)
                 game_mode = MODE_VS_HUMAN
                 game_progress_page_id = 7
                 in_game_mode = True
@@ -343,14 +446,31 @@ async def event_listener():
                 show_setup_message = False
                 white_clock_time = 180
                 black_clock_time = 180
+                pgn_headers = {
+                    "White": "Human",
+                    "Black": "Human",
+                    "Event": "2 player game",
+                    "Site": "Imagine RIT",
+                    "Date": "%s" % current_date,
+                    "Time": "%s" % current_time,
+                }
                 await tft.send_command("page board_setup")
                 await tft.clear_console(page="game_progress")
 
             # Start game vs human remote
             if page == 4 and component == 5:
+                current_date, current_time = format_rtc_datetime(rtc)
                 game_mode = MODE_VS_HUMAN_REMOTE
                 game_progress_page_id = 5
                 in_game_mode = True
+                pgn_headers = {
+                    "White": "Human",
+                    "Black": "Human",
+                    "Event": "2 player game",
+                    "Site": "Imagine RIT",
+                    "Date": "%s" % current_date,
+                    "Time": "%s" % current_time,
+                }
                 await tft.send_command("page start_remote")
 
             # Run RGB LED strip test
@@ -404,6 +524,15 @@ async def event_listener():
                 else:
                     white_clock.stop_clock()
                     black_clock.start_clock()
+
+            # Save game history to SD Card
+            if page == 18 and component == 12:
+                if sd_card_mounted:
+                    print("Saving game history to SD Card")
+                    await save_game_history_to_sd(game, result=game_result, headers=pgn_headers)
+                else:
+                    print("SD Card not mounted")
+                    await tft.print_console("SD Card not mounted")
 
             # Start New Game - Same Game Mode
             if (page == 18 and component == 8) or (page == 7 and component == 10):
@@ -500,6 +629,7 @@ async def event_listener():
                 white_clock.clear()
                 game_in_progress = False
                 game_over_flag = True
+                game_result = game.result
 
             if page == 23 and component == 10:
                 print("Game abandoned")
@@ -764,7 +894,9 @@ async def event_listener():
                                 castling_complete_flag = False
                                 finish_castling_flag = False
                             elif potential_en_passant and is_en_passant_move:
-                                chessboard.update_board_en_passant(game.turn, final_move, game.enpassant)
+                                chessboard.update_board_en_passant(
+                                    game.turn, final_move, game.enpassant
+                                )
                             else:
                                 chessboard.update_board_move(final_move)
                             final_move = None
@@ -827,7 +959,9 @@ async def event_listener():
                                 castling_complete_flag = False
                                 finish_castling_flag = False
                             elif potential_en_passant and is_en_passant_move:
-                                chessboard.update_board_en_passant(game.turn, final_move, game.enpassant)
+                                chessboard.update_board_en_passant(
+                                    game.turn, final_move, game.enpassant
+                                )
                             else:
                                 chessboard.update_board_move(final_move)
                             final_move = None
@@ -1179,7 +1313,9 @@ async def event_listener():
                                         print("Move matches CPU move")
                                 else:
                                     if move[1] in ["g1", "g8", "c1", "c8"]:
-                                        print("The move is a castling move but the king cannot castle")
+                                        print(
+                                            "The move is a castling move but the king cannot castle"
+                                        )
                                         is_legal_move = False
                                     else:
                                         print("The move is not a castling move")
@@ -1313,12 +1449,16 @@ async def event_listener():
                         )
 
                         if potential_en_passant:
-                            if chessboard.check_en_passant_positions(game.turn, game.enpassant):
+                            if chessboard.check_en_passant_positions(
+                                game.turn, game.enpassant
+                            ):
                                 print("En passant move")
                                 move_notation = "%sx%se.p." % (move[0], game.enpassant)
                                 is_en_passant_move = True
                             else:
-                                print("Potential en passant, but not doing the en passant move")
+                                print(
+                                    "Potential en passant, but not doing the en passant move"
+                                )
                                 move_notation = "%sx%s" % move
                         else:
                             move_notation = "%sx%s" % move
@@ -1364,6 +1504,7 @@ async def event_listener():
                     await tft.send_command("page game_ended")
                     await tft.set_value("t2.txt", "Time Expired")
                     await tft.set_value("t3.txt", "Black Wins")
+                    game_result = "0-1"
                     chessboard_led.show_checkmate("w")
                     game_in_progress = False
                     game_over_flag = True
@@ -1372,6 +1513,7 @@ async def event_listener():
                     await tft.send_command("page game_ended")
                     await tft.set_value("t2.txt", "Time Expired")
                     await tft.set_value("t3.txt", "White Wins")
+                    game_result = "1-0"
                     chessboard_led.show_checkmate("b")
                     game_in_progress = False
                     game_over_flag = True
@@ -1381,6 +1523,7 @@ async def event_listener():
                     await tft.set_value("t2.txt", "Checkmate")
                     winner = "White" if game.turn == "b" else "Black"
                     await tft.set_value("t3.txt", "%s Wins" % winner)
+                    game_result = "1-0" if game.turn == "b" else "0-1"
                     chessboard_led.show_checkmate(game.turn)
                     game_in_progress = False
                     checkmate_flag = False
@@ -1390,6 +1533,7 @@ async def event_listener():
                     await tft.send_command("page game_ended")
                     await tft.set_value("t2.txt", "Stalemate")
                     await tft.set_value("t3.txt", "Game Ends in Draw")
+                    game_result = "1/2-1/2"
                     chessboard_led.show_stalemate()
                     game_in_progress = False
                     stalemate_flag = False
@@ -1398,6 +1542,7 @@ async def event_listener():
                     if update_led_board:
                         chessboard_led.show_occupied_squares(chessboard)
                         update_led_board = False
+                    game_result = "*"
                     white_clock.update_clock()
                     black_clock.update_clock()
 
