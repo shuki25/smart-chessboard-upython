@@ -566,12 +566,17 @@ class Chess:
             self.board[index].isupper() if color == "w" else self.board[index].islower()
         )
 
-    def update_turn(self, move: str, promoted: bool = False):
+    def update_turn(self, move: str, promoted: bool = False, enpassant: bool = False):
         """
         Update the turn to the next player.
 
+        :param move: the move that was just made
+        :param promoted: True if the move was a promotion, False otherwise
+        :param enpassant: True if the move was an en passant capture, False otherwise
+
         :return: None
         """
+        print("Updating turn")
         next_turn = "b" if self.turn == "w" else "w"
 
         self.check_flag = False
@@ -579,6 +584,9 @@ class Chess:
         self.stalemate_flag = False
         self.game_over_flag = False
 
+        if enpassant:
+            debug("Adding en passant to the move string")
+            move += "e.p."
         if self.is_check(next_turn):
             self.check_flag = True
             if self.is_checkmate(next_turn):
@@ -628,6 +636,9 @@ class Chess:
         print("check_flag: {}".format(self.check_flag))
         print("checkmate_flag: {}".format(self.checkmate_flag))
         print("stalemate_flag: {}".format(self.stalemate_flag))
+        print("game_over_flag: {}".format(self.game_over_flag))
+        print("enpassant: {}".format(self.enpassant))
+        print("turn: {}".format(self.turn))
 
     def get_move_history(self, num_moves: int = 0):
         """
@@ -849,7 +860,6 @@ class Chess:
                 return False
 
         if self.is_enpassant(move_formatted):
-            debug("move is enpassant")
             from_square = algebraic_to_board_index(move_from)
             to_square = algebraic_to_board_index(move_to)
             self.board[from_square] = " "
@@ -860,9 +870,8 @@ class Chess:
                 else algebraic_to_board_index(self.enpassant) + 8
             )
             self.board[captured_square] = " "
+            self.update_turn(move_formatted, enpassant=True)
             self.enpassant = "-"
-            self.update_turn(move_formatted)
-            debug("enpassant move is complete")
             return True
 
         if self.is_promotion(move_formatted):

@@ -250,6 +250,8 @@ async def event_listener():
     in_castling_position = False
     castling_complete_flag = False
     show_setup_message = False
+    potential_en_passant = False
+    is_en_passant_move = False
     piece_coordinate = None
     move_notation = None
     legal_moves = []
@@ -761,10 +763,14 @@ async def event_listener():
                                 castling_side = None
                                 castling_complete_flag = False
                                 finish_castling_flag = False
+                            elif potential_en_passant and is_en_passant_move:
+                                chessboard.update_board_en_passant(game.turn, final_move, game.enpassant)
                             else:
                                 chessboard.update_board_move(final_move)
                             final_move = None
                             move_complete_flag = False
+                            potential_en_passant = False
+                            is_en_passant_move = False
                             chessboard_led.clear_board()
                             game.make_move(move_notation, side="w")
                             update_led_board = True
@@ -820,10 +826,14 @@ async def event_listener():
                                 castling_side = None
                                 castling_complete_flag = False
                                 finish_castling_flag = False
+                            elif potential_en_passant and is_en_passant_move:
+                                chessboard.update_board_en_passant(game.turn, final_move, game.enpassant)
                             else:
                                 chessboard.update_board_move(final_move)
                             final_move = None
                             move_complete_flag = False
+                            potential_en_passant = False
+                            is_en_passant_move = False
                             chessboard_led.clear_board()
                             game.make_move(move_notation, side="b")
                             update_led_board = True
@@ -872,7 +882,7 @@ async def event_listener():
                 board_status, board = chessboard.get_board()
 
                 print(
-                    "Potential castle: %s, Is castling: %s, Castling Complete: %s, Finish Castle Move: %s"
+                    "Potential castle: %s, Is castling: %s, Castling Complete: %s, Finishing Castle Move: %s"
                     % (
                         potential_castle,
                         is_castling,
@@ -880,6 +890,8 @@ async def event_listener():
                         finish_castling_flag,
                     )
                 )
+
+                print("Potential En Passant: %s" % potential_en_passant)
 
                 delta_positions = chessboard.delta_board_positions(
                     prev_board_status, board_status
@@ -893,6 +905,8 @@ async def event_listener():
                         )
                     elif delta_positions == 2 and capture_flag:
                         print("Two positions changed, capture is possible")
+                    elif delta_positions == 3 and potential_en_passant:
+                        print("Three positions changed, potential en passant")
                     elif delta_positions > 2:
                         print(
                             "More than two positions changed, force board reconfiguration"
@@ -1036,6 +1050,12 @@ async def event_listener():
                                 chessboard_led.show_legal_moves(
                                     piece_coordinate, legal_moves, game
                                 )
+                                if game.enpassant != "-":
+                                    print("enpassant: %s" % game.enpassant)
+                                    print("Enpassant move is possible")
+                                    potential_en_passant = True
+                                else:
+                                    potential_en_passant = False
                             else:
                                 print("Enemy piece lifted")
                                 chessboard_led.show_illegal_piece_lifted(
@@ -1291,9 +1311,19 @@ async def event_listener():
                             board_state_capturing_piece,
                             board_state_captured_piece,
                         )
-                        move_notation = "%sx%s" % move
+
+                        if potential_en_passant:
+                            if chessboard.check_en_passant_positions(game.turn, game.enpassant):
+                                print("En passant move")
+                                move_notation = "%sx%se.p." % (move[0], game.enpassant)
+                                is_en_passant_move = True
+                            else:
+                                print("Potential en passant, but not doing the en passant move")
+                                move_notation = "%sx%s" % move
+                        else:
+                            move_notation = "%sx%s" % move
                         original_position = move[0]
-                        print("%sx%s" % move)
+                        print("%s" % move_notation)
                         print("Waiting for button press to confirm move")
                         final_move_board_status = board_status
                         final_num_pieces = num_pieces

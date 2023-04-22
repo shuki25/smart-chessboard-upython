@@ -320,6 +320,32 @@ class Chessboard:
         self.board[start] = " "
         self.board[end] = piece
 
+    def update_board_en_passant(self, color: str, move: tuple, en_passant: str):
+        """
+        Update the board state with an en passant move
+
+        :param color: Color of the player
+        :param move: Move in long algebraic notation
+        :param en_passant: En passant square
+
+        :return: None
+        """
+        if not isinstance(move, tuple):
+            raise Exception("move is not a tuple")
+
+
+        if self.check_en_passant_positions(color, en_passant):
+            print("Performing en passant move in update_board_en_passant")
+            start = self.algebraic_to_board_index(move[0])
+            end = self.algebraic_to_board_index(en_passant)
+            piece = self.board[start]
+            self.board[start] = " "
+            self.board[end] = piece
+            if color == "w":
+                self.board[end - 8] = " "
+            else:
+                self.board[end + 8] = " "
+
     def update_castling_move(self, color: str, side: str):
         """
         Update the board state with a castling move
@@ -396,6 +422,36 @@ class Chessboard:
         old_pos = self.coord_to_algebraic(old_pos_coord)
 
         return old_pos, new_pos
+
+    def check_en_passant_positions(self, color: str, enpassant_square: str):
+        """
+        Check if the en passant square is in the correct position
+
+        :param color: Color of the player
+        :param enpassant_square: En passant square
+
+        :return: True if en passant square is correct, False otherwise
+        """
+
+        if enpassant_square == "-":
+            return False
+
+        bitboard = self.convert_bitboard_to_int()
+        square_index = self.algebraic_to_board_index(enpassant_square)
+
+        # Check if the piece is in en passant square
+        if not (bitboard & (1 << square_index)):
+            return False
+
+        # Check if the enemy pawn has been removed
+        if color == "w":
+            if not (bitboard & (1 << (square_index - 8))):
+                return True
+        elif color == "b":
+            if not (bitboard & (1 << (square_index + 8))):
+                return True
+
+        return True
 
     def get_castling_move(self, color: str, side: str):
         """
