@@ -333,7 +333,6 @@ class Chessboard:
         if not isinstance(move, tuple):
             raise Exception("move is not a tuple")
 
-
         if self.check_en_passant_positions(color, en_passant):
             print("Performing en passant move in update_board_en_passant")
             start = self.algebraic_to_board_index(move[0])

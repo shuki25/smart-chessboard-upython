@@ -4,10 +4,10 @@ import machine
 
 
 esp.osdebug(0)
-#esp.osdebug(None)
+# esp.osdebug(None)
 
-#import webrepl
-#webrepl.start()
+# import webrepl
+# webrepl.start()
 
 # Set frequency to 240MHz
 machine.freq(240000000)

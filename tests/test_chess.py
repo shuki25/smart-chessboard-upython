@@ -43,27 +43,143 @@ def test_get_square_color():
 
 
 def test_initial_board():
-    assert board.get_board() == ["R", "N", "B", "Q", "K", "B", "N", "R",
-                                 "P", "P", "P", "P", "P", "P", "P", "P",
-                                 " ", " ", " ", " ", " ", " ", " ", " ",
-                                 " ", " ", " ", " ", " ", " ", " ", " ",
-                                 " ", " ", " ", " ", " ", " ", " ", " ",
-                                 " ", " ", " ", " ", " ", " ", " ", " ",
-                                 "p", "p", "p", "p", "p", "p", "p", "p",
-                                 "r", "n", "b", "q", "k", "b", "n", "r"]
+    assert board.get_board() == [
+        "R",
+        "N",
+        "B",
+        "Q",
+        "K",
+        "B",
+        "N",
+        "R",
+        "P",
+        "P",
+        "P",
+        "P",
+        "P",
+        "P",
+        "P",
+        "P",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        "p",
+        "p",
+        "p",
+        "p",
+        "p",
+        "p",
+        "p",
+        "p",
+        "r",
+        "n",
+        "b",
+        "q",
+        "k",
+        "b",
+        "n",
+        "r",
+    ]
 
 
 def test_initial_board_fen():
     board.set_fen("r6r/1b2k1bq/8/8/7B/8/8/R3K2R b KQ - 3 2")
     assert board.get_fen() == "r6r/1b2k1bq/8/8/7B/8/8/R3K2R b KQ - 3 2"
-    assert board.get_board() == ["R", " ", " ", " ", "K", " ", " ", "R",
-                                 " ", " ", " ", " ", " ", " ", " ", " ",
-                                 " ", " ", " ", " ", " ", " ", " ", " ",
-                                 " ", " ", " ", " ", " ", " ", " ", "B",
-                                 " ", " ", " ", " ", " ", " ", " ", " ",
-                                 " ", " ", " ", " ", " ", " ", " ", " ",
-                                 " ", "b", " ", " ", "k", " ", "b", "q",
-                                 "r", " ", " ", " ", " ", " ", " ", "r"]
+    assert board.get_board() == [
+        "R",
+        " ",
+        " ",
+        " ",
+        "K",
+        " ",
+        " ",
+        "R",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        "B",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        "b",
+        " ",
+        " ",
+        "k",
+        " ",
+        "b",
+        "q",
+        "r",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        " ",
+        "r",
+    ]
 
 
 def test_check_move_notation():
@@ -83,21 +199,63 @@ def test_check_move_notation():
 
 def test_parse_move_notation():
     with check:
-        assert chess.parse_move_notation("e4") == (None, "e4", False, None, False, False)
+        assert chess.parse_move_notation("e4") == (
+            None,
+            "e4",
+            False,
+            None,
+            False,
+            False,
+        )
     with check:
-        assert chess.parse_move_notation("h1-g1") == ("h1", "g1", False, None, False, False)
+        assert chess.parse_move_notation("h1-g1") == (
+            "h1",
+            "g1",
+            False,
+            None,
+            False,
+            False,
+        )
     with check:
-        assert chess.parse_move_notation("h1xg1") == ("h1", "g1", True, None, False, False)
+        assert chess.parse_move_notation("h1xg1") == (
+            "h1",
+            "g1",
+            True,
+            None,
+            False,
+            False,
+        )
     with check:
-        assert chess.parse_move_notation("h1-g1=Q") == ("h1", "g1", False, "Q", False, False)
+        assert chess.parse_move_notation("h1-g1=Q") == (
+            "h1",
+            "g1",
+            False,
+            "Q",
+            False,
+            False,
+        )
     with check:
-        assert chess.parse_move_notation("h1xg1=Q") == ("h1", "g1", True, "Q", False, False)
+        assert chess.parse_move_notation("h1xg1=Q") == (
+            "h1",
+            "g1",
+            True,
+            "Q",
+            False,
+            False,
+        )
     with check:
         assert chess.parse_move_notation("O-O") == ("O", "O", False, None, False, "K")
     with check:
         assert chess.parse_move_notation("O-O-O") == ("O", "O", False, None, False, "Q")
     with check:
-        assert chess.parse_move_notation("g4xf3e.p.") == ("g4", "f3", True, None, True, False)
+        assert chess.parse_move_notation("g4xf3e.p.") == (
+            "g4",
+            "f3",
+            True,
+            None,
+            True,
+            False,
+        )
 
 
 def test_board_index():
@@ -146,7 +304,9 @@ def test_legal_knight_moves():
     board.set_fen("4k3/8/8/N7/8/8/8/4K3 b - - 0 1")
     index = chess.algebraic_to_board_index("a5")
     with check:
-        assert board.get_legal_moves(index) == unordered(["a5-b3", "a5-c4", "a5-b7", "a5-c6"])
+        assert board.get_legal_moves(index) == unordered(
+            ["a5-b3", "a5-c4", "a5-b7", "a5-c6"]
+        )
 
     board.set_fen("4k3/8/8/8/8/8/8/N3K3 w - - 0 1")
     index = chess.algebraic_to_board_index("a1")
@@ -169,7 +329,9 @@ def test_legal_knight_moves():
     board.set_fen("4k3/8/8/8/8/8/1N6/4K3 w - - 0 1")
     index = chess.algebraic_to_board_index("b2")
     with check:
-        assert board.get_legal_moves(index) == unordered(["b2-a4", "b2-c4", "b2-d1", "b2-d3"])
+        assert board.get_legal_moves(index) == unordered(
+            ["b2-a4", "b2-c4", "b2-d1", "b2-d3"]
+        )
 
     board.set_fen("1N2k3/8/8/8/8/8/8/4K3 b - - 0 1")
     index = chess.algebraic_to_board_index("b8")
@@ -184,7 +346,9 @@ def test_legal_knight_moves():
     board.set_fen("6k1/8/8/8/8/6N1/8/4K3 w - - 0 1")
     index = chess.algebraic_to_board_index("g3")
     with check:
-        assert board.get_legal_moves(index) == unordered(["g3-f5", "g3-h5", "g3-e4", "g3-e2", "g3-f1", "g3-h1"])
+        assert board.get_legal_moves(index) == unordered(
+            ["g3-f5", "g3-h5", "g3-e4", "g3-e2", "g3-f1", "g3-h1"]
+        )
 
     board.set_fen("6k1/8/8/8/8/8/7N/4K3 w - - 0 1")
     index = chess.algebraic_to_board_index("h2")
@@ -196,7 +360,9 @@ def test_legal_rook_moves():
     board.set_fen("4k3/8/1r6/8/7p/8/8/4K2R w - - 0 1")
     index = chess.algebraic_to_board_index("h1")
     with check:
-        assert board.get_legal_moves(index) == unordered(["h1-g1", "h1-f1", "h1-h2", "h1-h3", "h1xh4"])
+        assert board.get_legal_moves(index) == unordered(
+            ["h1-g1", "h1-f1", "h1-h2", "h1-h3", "h1xh4"]
+        )
     index = chess.algebraic_to_board_index("b6")
     with check:
         assert board.get_legal_moves(index) == unordered(
@@ -288,7 +454,9 @@ def test_checked_king_escape_moves():
     with check:
         assert board.get_legal_moves(index) == unordered(["e8-d8", "e8-f8"])
     with check:
-        assert board.all_legal_moves("b") == unordered(["e8-d8", "e8-f8", "c5-e7", "d7xe6", "f7xe6"])
+        assert board.all_legal_moves("b") == unordered(
+            ["e8-d8", "e8-f8", "c5-e7", "d7xe6", "f7xe6"]
+        )
 
 
 def test_castling_moves():
@@ -303,22 +471,34 @@ def test_castling_moves():
     board.set_fen("r3k2r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R3K2R b KQkq - 3 2")
     with check:
         board.make_move("O-O", "b")
-        assert board.get_fen() == "r4rk1/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R3K2R w KQ - 4 3"
+        assert (
+            board.get_fen()
+            == "r4rk1/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R3K2R w KQ - 4 3"
+        )
 
     board.set_fen("r3k2r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R3K2R b KQkq - 3 2")
     with check:
         board.make_move("O-O-O", "b")
-        assert board.get_fen() == "2kr3r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R3K2R w KQ - 4 3"
+        assert (
+            board.get_fen()
+            == "2kr3r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R3K2R w KQ - 4 3"
+        )
 
     board.set_fen("r3k2r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R3K2R w KQkq - 3 2")
     with check:
         board.make_move("O-O-O", "w")
-        assert board.get_fen() == "r3k2r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/2KR3R b kq - 4 2"
+        assert (
+            board.get_fen()
+            == "r3k2r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/2KR3R b kq - 4 2"
+        )
 
     board.set_fen("r3k2r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R3K2R w KQkq - 3 2")
     with check:
         board.make_move("O-O", "w")
-        assert board.get_fen() == "r3k2r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R4RK1 b kq - 4 2"
+        assert (
+            board.get_fen()
+            == "r3k2r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R4RK1 b kq - 4 2"
+        )
 
 
 def test_promotion():
@@ -326,14 +506,32 @@ def test_promotion():
     with check:
         index = chess.algebraic_to_board_index("b2")
         assert board.get_legal_moves(index) == unordered(
-            ["b2-b1=q", "b2-b1=r", "b2-b1=b", "b2-b1=n", "b2xc1=q", "b2xc1=r", "b2xc1=b", "b2xc1=n"]
+            [
+                "b2-b1=q",
+                "b2-b1=r",
+                "b2-b1=b",
+                "b2-b1=n",
+                "b2xc1=q",
+                "b2xc1=r",
+                "b2xc1=b",
+                "b2xc1=n",
+            ]
         )
 
     board.set_fen("1b2k3/2P5/8/8/8/8/8/4K3 w - - 0 1")
     with check:
         index = chess.algebraic_to_board_index("c7")
         assert board.get_legal_moves(index) == unordered(
-            ["c7-c8=Q", "c7-c8=R", "c7-c8=B", "c7-c8=N", "c7xb8=Q", "c7xb8=R", "c7xb8=B", "c7xb8=N"]
+            [
+                "c7-c8=Q",
+                "c7-c8=R",
+                "c7-c8=B",
+                "c7-c8=N",
+                "c7xb8=Q",
+                "c7xb8=R",
+                "c7xb8=B",
+                "c7xb8=N",
+            ]
         )
     with check:
         board.make_move("c7-c8=Q")
@@ -399,19 +597,40 @@ def test_pgn():
         board.make_move("e5xf6e.p.")
         assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6"
         board.make_move("g7xf6")
-        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6"
+        assert (
+            board.get_pgn(test=True).strip()
+            == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6"
+        )
     with check:
         board.make_move("g1-f3")
-        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3"
+        assert (
+            board.get_pgn(test=True).strip()
+            == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3"
+        )
         board.make_move("g8-h6")
-        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6"
+        assert (
+            board.get_pgn(test=True).strip()
+            == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6"
+        )
     with check:
         board.make_move("f1-d3")
-        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6 5. f1d3"
+        assert (
+            board.get_pgn(test=True).strip()
+            == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6 5. f1d3"
+        )
         board.make_move("f8-g7")
-        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6 5. f1d3 f8g7"
+        assert (
+            board.get_pgn(test=True).strip()
+            == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6 5. f1d3 f8g7"
+        )
     with check:
         board.make_move("O-O")
-        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6 5. f1d3 f8g7 6. O-O"
+        assert (
+            board.get_pgn(test=True).strip()
+            == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6 5. f1d3 f8g7 6. O-O"
+        )
         board.make_move("O-O")
-        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6 5. f1d3 f8g7 6. O-O O-O"
+        assert (
+            board.get_pgn(test=True).strip()
+            == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6 5. f1d3 f8g7 6. O-O O-O"
+        )

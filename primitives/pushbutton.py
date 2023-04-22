@@ -15,8 +15,9 @@ class Pushbutton:
     debounce_ms = 50
     long_press_ms = 1000
     double_click_ms = 400
+
     def __init__(self, pin, suppress=False, sense=None):
-        self.pin = pin # Initialise for input
+        self.pin = pin  # Initialise for input
         self._supp = suppress
         self._dblpend = False  # Doubleclick waiting for 2nd click
         self._dblran = False  # Doubleclick executed user function
@@ -25,7 +26,9 @@ class Pushbutton:
         self._df = False
         self._ld = False  # Delay_ms instance for long press
         self._dd = False  # Ditto for doubleclick
-        self.sense = pin.value() if sense is None else sense  # Convert from electrical to logical value
+        self.sense = (
+            pin.value() if sense is None else sense
+        )  # Convert from electrical to logical value
         self.state = self.rawstate()  # Initial state
         asyncio.create_task(self.buttoncheck())  # Thread runs forever
 
@@ -93,7 +96,7 @@ class Pushbutton:
                 else:  # Button release. Is there a release func?
                     if self._ff:
                         if self._supp:
-                            d = self._ld 
+                            d = self._ld
                             # If long delay exists, is running and doubleclick status is OK
                             if not self._dblpend and not self._dblran:
                                 if (d and d()) or not d:

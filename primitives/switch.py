@@ -7,10 +7,12 @@ import uasyncio as asyncio
 import utime as time
 from . import launch
 
+
 class Switch:
     debounce_ms = 50
+
     def __init__(self, pin):
-        self.pin = pin # Should be initialised for input with pullup
+        self.pin = pin  # Should be initialised for input with pullup
         self._open_func = False
         self._close_func = False
         self.switchstate = self.pin.value()  # Get initial state

@@ -17,6 +17,7 @@ except ImportError:
 # .clear() should be issued by at least one waiting task and before
 # next event.
 
+
 class Message(asyncio.ThreadSafeFlag):
     def __init__(self, _=0):  # Arg: poll interval. Compatibility with old code.
         self._evt = asyncio.Event()
@@ -32,7 +33,7 @@ class Message(asyncio.ThreadSafeFlag):
     def __iter__(self):
         yield from self.wait()
         return self._data
-    
+
     async def wait(self):
         if self._state:  # A task waits on ThreadSafeFlag
             await self._evt.wait()  # Wait on event

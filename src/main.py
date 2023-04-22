@@ -22,6 +22,7 @@ async def connect_wifi():
     print("connected to wifi")
     print(wlan.ifconfig())
 
+
 loop = uasyncio.get_event_loop()
 # loop.create_task(connect_wifi())
 loop.create_task(app.main())

@@ -450,7 +450,13 @@ class Chess:
         fen += " " + str(self.halfmove) + " " + str(self.fullmove)
         return fen
 
-    def get_pgn(self, moves: list = None, result: str = "*", headers: dict = None, test: bool = False):
+    def get_pgn(
+        self,
+        moves: list = None,
+        result: str = "*",
+        headers: dict = None,
+        test: bool = False,
+    ):
         """
         Return the PGN string representing the current game state.
 

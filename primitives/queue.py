@@ -18,8 +18,8 @@ class QueueEmpty(Exception):
 class QueueFull(Exception):
     pass
 
-class Queue:
 
+class Queue:
     def __init__(self, maxsize=0):
         self.maxsize = maxsize
         self._queue = []

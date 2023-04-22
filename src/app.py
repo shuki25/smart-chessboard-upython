@@ -529,7 +529,9 @@ async def event_listener():
             if page == 18 and component == 12:
                 if sd_card_mounted:
                     print("Saving game history to SD Card")
-                    await save_game_history_to_sd(game, result=game_result, headers=pgn_headers)
+                    await save_game_history_to_sd(
+                        game, result=game_result, headers=pgn_headers
+                    )
                 else:
                     print("SD Card not mounted")
                     await tft.print_console("SD Card not mounted")

@@ -10,6 +10,7 @@ MP_STREAM_POLL_RD = const(1)
 MP_STREAM_POLL = const(3)
 MP_STREAM_ERROR = const(-1)
 
+
 class AADC(io.IOBase):
     def __init__(self, adc):
         self._adc = adc
@@ -21,14 +22,14 @@ class AADC(io.IOBase):
 
     def __iter__(self):
         b = yield from self._sreader.read(2)
-        return int.from_bytes(b, 'little')
+        return int.from_bytes(b, "little")
 
     def _adcread(self):
         self._last = self._adc.read_u16()
         return self._last
 
     def read(self, n):  # For use by StreamReader only
-        return int.to_bytes(self._last, 2, 'little')
+        return int.to_bytes(self._last, 2, "little")
 
     def ioctl(self, req, arg):
         ret = MP_STREAM_ERROR
