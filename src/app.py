@@ -164,35 +164,40 @@ async def console_move_history(
     global tft
 
     print("in console_move_history")
-    side = "b" if move_history[-1][1] == "" else "w"
-    print("side: %s" % side)
-    if len(move_history) >= max_lines:
-        move_num = full_move_number - max_lines + 1
-        if side == "w":
-            max_lines -= 1
-        history = move_history[-max_lines:]
+    length_history = len(move_history)
+    print("length_history: %s" % length_history)
+    if length_history == 0:
+        console_buffer = "1. ..."
     else:
-        move_num = 1
-        history = move_history
-    console_buffer = ""
-
-    print("move history: %s" % history)
-    print("move number: %s" % move_num)
-
-    for i, move in enumerate(history):
-        if i > 0:
-            console_buffer += "\\r"
-        if move[1] != "":
-            console_buffer += "%d. %s %s" % (move_num + i, move[0], move[1])
+        side = "b" if move_history[-1][1] == "" else "w"
+        print("side: %s" % side)
+        if len(move_history) >= max_lines:
+            move_num = full_move_number - max_lines + 1
+            if side == "w":
+                max_lines -= 1
+            history = move_history[-max_lines:]
         else:
-            if not game_over:
-                console_buffer += "%d. %s ..." % (move_num + i, move[0])
+            move_num = 1
+            history = move_history
+        console_buffer = ""
+
+        print("move history: %s" % history)
+        print("move number: %s" % move_num)
+
+        for i, move in enumerate(history):
+            if i > 0:
+                console_buffer += "\\r"
+            if move[1] != "":
+                console_buffer += "%d. %s %s" % (move_num + i, move[0], move[1])
             else:
-                console_buffer += "%d. %s" % (move_num + i, move[0])
-    if side == "w" and not game_over:
-        console_buffer += "\\r%d. ..." % (move_num + i + 1)
-    if game_over:
-        console_buffer += "\\r%s" % result
+                if not game_over:
+                    console_buffer += "%d. %s ..." % (move_num + i, move[0])
+                else:
+                    console_buffer += "%d. %s" % (move_num + i, move[0])
+        if side == "w" and not game_over:
+            console_buffer += "\\r%d. ..." % (move_num + i + 1)
+        if game_over:
+            console_buffer += "\\r%s" % result
     print("console buffer: %s" % console_buffer)
     await tft.print_console(
         console_buffer, page=page, max_lines=max_lines, replace=True
@@ -251,7 +256,7 @@ async def save_game_history_to_sd(
     # sd_card_detect is LOW when the card is inserted
     if sd_card_detect.value():
         print("sd card not detected")
-        return
+        return None
 
     if not sd_card_detect.value() and sd_card_mounted:
         print("sd card is mounted")
@@ -269,17 +274,19 @@ async def save_game_history_to_sd(
 
         except OSError as e:
             print("error: %s" % e)
-            return
+            return "Error: %s" % e
 
         try:
-            with open("/sd/games/game_%d.pgn" % game_counter, "w") as f:
+            filename = "game_%d.pgn" % game_counter
+            with open("/sd/games/%s" % filename, "w") as f:
                 f.write(the_game.get_pgn(result=result, headers=headers))
             with open("/sd/game_counter.txt", "w") as f:
                 print("new game counter: %d" % game_counter)
                 f.write(str(game_counter))
+                return filename
         except OSError as e:
             print("error writing to PGN file: %s" % e)
-            return
+            return "Error: %s" % e
 
 
 async def event_listener():
@@ -344,6 +351,7 @@ async def event_listener():
     test_running = False
     in_game_mode = False
     game_mode = MODE_VS_HUMAN
+    game_over_flag = False
     prev_lux = 0
     force_fix_board_flag = False
     fix_board_flag = False
@@ -529,12 +537,19 @@ async def event_listener():
             if page == 18 and component == 12:
                 if sd_card_mounted:
                     print("Saving game history to SD Card")
-                    await save_game_history_to_sd(
+                    await tft.send_command("page save_game")
+                    fn = await save_game_history_to_sd(
                         game, result=game_result, headers=pgn_headers
                     )
+                    await tft.set_value("save_game.file_name.txt", fn)
+                    await uasyncio.sleep(4)
+                    await tft.send_command("page game_ended")
+
                 else:
                     print("SD Card not mounted")
+                    await tft.send_command("page save_game")
                     await tft.print_console("SD Card not mounted")
+                    await uasyncio.sleep(4)
 
             # Start New Game - Same Game Mode
             if (page == 18 and component == 8) or (page == 7 and component == 10):
@@ -543,8 +558,9 @@ async def event_listener():
                 in_game_mode = True
                 show_setup_message = False
                 game_in_progress = False
+                game_over_flag = False
                 await tft.send_command("page board_setup")
-                await tft.clear_console(page="game_progress")
+                await tft.clear_console(page=console_tag)
 
             # Run OLED test
             if page == 11 and component == 5:
@@ -644,7 +660,7 @@ async def event_listener():
                 black_clock.clear()
                 white_clock.clear()
                 game_in_progress = False
-                game_over_flag = True
+                game_over_flag = False
 
         if event == nextion.TOUCH_IN_SLEEP:
             (page, component, touch) = data
@@ -749,23 +765,7 @@ async def event_listener():
                 prev_board_status = board_status
                 simulated_board_status = board_status
                 move_complete_flag = False
-                if game_mode == MODE_VS_HUMAN:
-                    await tft.send_command("page game_progress")
-                    await tft.clear_console(page="game_progress")
-                    await tft.print_console("1. ...", page="game_progress")
-                    console_tag = "game_progress"
-                elif game_mode == MODE_VS_CPU:
-                    await tft.send_command("page gm_progress_c")
-                    await tft.clear_console(page="gm_progress_c")
-                    await tft.print_console("1. ...", page="gm_progress_c")
-                    await tft.clear_analysis(page="gm_progress_c")
-                    console_tag = "gm_progress_c"
-                elif game_mode == MODE_VS_HUMAN_REMOTE:
-                    await tft.send_command("page gm_progress_r")
-                    await tft.clear_console(page="gm_progress_r")
-                    await tft.print_console("1. ...", page="gm_progress_r")
-                    await tft.clear_analysis(page="gm_progress_r")
-                    console_tag = "gm_progress_r"
+                await tft.send_command("page press_start")
 
             # Game in progress Logic starts here
 
@@ -857,14 +857,36 @@ async def event_listener():
                     simulated_board_status = board_status
                     curr_pieces = chessboard.count_pieces(board_status)
                     chessboard.print_board()
+
+                    # Black Clock Button Pressed to Start Game
                     if not button_black.value() and button_white.value():
+                        if game_mode == MODE_VS_HUMAN:
+                            await tft.send_command("page game_progress")
+                            await tft.clear_console(page="game_progress")
+                            await tft.print_console("1. ...", page="game_progress")
+                            console_tag = "game_progress"
+                        elif game_mode == MODE_VS_CPU:
+                            await tft.send_command("page gm_progress_c")
+                            await tft.clear_console(page="gm_progress_c")
+                            await tft.print_console("1. ...", page="gm_progress_c")
+                            await tft.clear_analysis(page="gm_progress_c")
+                            console_tag = "gm_progress_c"
+                        elif game_mode == MODE_VS_HUMAN_REMOTE:
+                            await tft.send_command("page gm_progress_r")
+                            await tft.clear_console(page="gm_progress_r")
+                            await tft.print_console("1. ...", page="gm_progress_r")
+                            await tft.clear_analysis(page="gm_progress_r")
+                            console_tag = "gm_progress_r"
                         game_in_progress = True
                         game.reset_board()
                         update_led_board = True
+                        game_over_flag = False
                         print("turn: {}".format(game.turn))
                         white_clock.set_clock(white_clock_time)
                         white_clock.start_clock()
                         black_clock.set_clock(black_clock_time)
+
+                # Clock button was pressed to accept a chess move
                 elif game_in_progress:
                     if not button_white.value() and game.turn == "w":
                         print("White button pressed")
@@ -1547,6 +1569,17 @@ async def event_listener():
                     game_result = "*"
                     white_clock.update_clock()
                     black_clock.update_clock()
+
+                if game_over_flag:
+                    print("Game over flag: %s" % game_over_flag)
+                    await console_move_history(
+                        game.get_move_history(),
+                        game.fullmove,
+                        max_lines=16,
+                        game_over=game.game_over_flag,
+                        result=game.result,
+                        page="game_ended",
+                    )
 
             # If button 0 is pressed, drop to REPL
             if repl_button.value() == 0:
