@@ -291,7 +291,10 @@ def get_square_color(square: int) -> int:
     """
     if square < 0 or square > 63:
         raise Exception("square must be between 0 and 63")
-    return (square // 8 + square % 8) % 2
+
+    square_color = (square // 8 + square % 8) % 2
+
+    return not square_color
 
 
 def parse_fen(fen: str) -> list:
