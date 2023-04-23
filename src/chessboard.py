@@ -345,6 +345,23 @@ class Chessboard:
             else:
                 self.board[end + 8] = " "
 
+    def update_board_promotion(self, move: tuple, promotion: str):
+        """
+        Update the board state with a promotion move
+
+        :param move: Move in long algebraic notation
+        :param promotion: Promotion piece
+
+        :return: None
+        """
+        if not isinstance(move, tuple):
+            raise Exception("move is not a tuple")
+
+        start = self.algebraic_to_board_index(move[0])
+        end = self.algebraic_to_board_index(move[1])
+        self.board[start] = " "
+        self.board[end] = promotion
+
     def update_castling_move(self, color: str, side: str):
         """
         Update the board state with a castling move
