@@ -7,38 +7,38 @@ board = chess.Chess()
 
 def test_get_square_color():
     with check:
-        assert chess.get_square_color(0) == 0
-        assert chess.get_square_color(1) == 1
-        assert chess.get_square_color(2) == 0
-        assert chess.get_square_color(3) == 1
-        assert chess.get_square_color(4) == 0
-        assert chess.get_square_color(5) == 1
-        assert chess.get_square_color(6) == 0
-        assert chess.get_square_color(7) == 1
-        assert chess.get_square_color(8) == 1
-        assert chess.get_square_color(9) == 0
-        assert chess.get_square_color(10) == 1
-        assert chess.get_square_color(11) == 0
-        assert chess.get_square_color(12) == 1
-        assert chess.get_square_color(13) == 0
-        assert chess.get_square_color(14) == 1
-        assert chess.get_square_color(15) == 0
-        assert chess.get_square_color(16) == 0
-        assert chess.get_square_color(17) == 1
-        assert chess.get_square_color(18) == 0
-        assert chess.get_square_color(19) == 1
-        assert chess.get_square_color(20) == 0
-        assert chess.get_square_color(21) == 1
-        assert chess.get_square_color(22) == 0
-        assert chess.get_square_color(23) == 1
-        assert chess.get_square_color(56) == 1
-        assert chess.get_square_color(57) == 0
-        assert chess.get_square_color(58) == 1
-        assert chess.get_square_color(59) == 0
-        assert chess.get_square_color(60) == 1
-        assert chess.get_square_color(61) == 0
-        assert chess.get_square_color(62) == 1
-        assert chess.get_square_color(63) == 0
+        assert chess.get_square_color(0) == 1
+        assert chess.get_square_color(1) == 0
+        assert chess.get_square_color(2) == 1
+        assert chess.get_square_color(3) == 0
+        assert chess.get_square_color(4) == 1
+        assert chess.get_square_color(5) == 0
+        assert chess.get_square_color(6) == 1
+        assert chess.get_square_color(7) == 0
+        assert chess.get_square_color(8) == 0
+        assert chess.get_square_color(9) == 1
+        assert chess.get_square_color(10) == 0
+        assert chess.get_square_color(11) == 1
+        assert chess.get_square_color(12) == 0
+        assert chess.get_square_color(13) == 1
+        assert chess.get_square_color(14) == 0
+        assert chess.get_square_color(15) == 1
+        assert chess.get_square_color(16) == 1
+        assert chess.get_square_color(17) == 0
+        assert chess.get_square_color(18) == 1
+        assert chess.get_square_color(19) == 0
+        assert chess.get_square_color(20) == 1
+        assert chess.get_square_color(21) == 0
+        assert chess.get_square_color(22) == 1
+        assert chess.get_square_color(23) == 0
+        assert chess.get_square_color(56) == 0
+        assert chess.get_square_color(57) == 1
+        assert chess.get_square_color(58) == 0
+        assert chess.get_square_color(59) == 1
+        assert chess.get_square_color(60) == 0
+        assert chess.get_square_color(61) == 1
+        assert chess.get_square_color(62) == 0
+        assert chess.get_square_color(63) == 1
 
 
 def test_initial_board():
