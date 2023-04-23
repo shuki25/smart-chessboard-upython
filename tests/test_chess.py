@@ -2,7 +2,6 @@ from src import chess
 from pytest_unordered import unordered
 from pytest_check import check
 
-
 board = chess.Chess()
 
 
@@ -304,9 +303,7 @@ def test_legal_knight_moves():
     board.set_fen("4k3/8/8/N7/8/8/8/4K3 b - - 0 1")
     index = chess.algebraic_to_board_index("a5")
     with check:
-        assert board.get_legal_moves(index) == unordered(
-            ["a5-b3", "a5-c4", "a5-b7", "a5-c6"]
-        )
+        assert board.get_legal_moves(index) == unordered(["a5-b3", "a5-c4", "a5-b7", "a5-c6"])
 
     board.set_fen("4k3/8/8/8/8/8/8/N3K3 w - - 0 1")
     index = chess.algebraic_to_board_index("a1")
@@ -329,9 +326,7 @@ def test_legal_knight_moves():
     board.set_fen("4k3/8/8/8/8/8/1N6/4K3 w - - 0 1")
     index = chess.algebraic_to_board_index("b2")
     with check:
-        assert board.get_legal_moves(index) == unordered(
-            ["b2-a4", "b2-c4", "b2-d1", "b2-d3"]
-        )
+        assert board.get_legal_moves(index) == unordered(["b2-a4", "b2-c4", "b2-d1", "b2-d3"])
 
     board.set_fen("1N2k3/8/8/8/8/8/8/4K3 b - - 0 1")
     index = chess.algebraic_to_board_index("b8")
@@ -346,9 +341,7 @@ def test_legal_knight_moves():
     board.set_fen("6k1/8/8/8/8/6N1/8/4K3 w - - 0 1")
     index = chess.algebraic_to_board_index("g3")
     with check:
-        assert board.get_legal_moves(index) == unordered(
-            ["g3-f5", "g3-h5", "g3-e4", "g3-e2", "g3-f1", "g3-h1"]
-        )
+        assert board.get_legal_moves(index) == unordered(["g3-f5", "g3-h5", "g3-e4", "g3-e2", "g3-f1", "g3-h1"])
 
     board.set_fen("6k1/8/8/8/8/8/7N/4K3 w - - 0 1")
     index = chess.algebraic_to_board_index("h2")
@@ -360,9 +353,7 @@ def test_legal_rook_moves():
     board.set_fen("4k3/8/1r6/8/7p/8/8/4K2R w - - 0 1")
     index = chess.algebraic_to_board_index("h1")
     with check:
-        assert board.get_legal_moves(index) == unordered(
-            ["h1-g1", "h1-f1", "h1-h2", "h1-h3", "h1xh4"]
-        )
+        assert board.get_legal_moves(index) == unordered(["h1-g1", "h1-f1", "h1-h2", "h1-h3", "h1xh4"])
     index = chess.algebraic_to_board_index("b6")
     with check:
         assert board.get_legal_moves(index) == unordered(
@@ -454,9 +445,7 @@ def test_checked_king_escape_moves():
     with check:
         assert board.get_legal_moves(index) == unordered(["e8-d8", "e8-f8"])
     with check:
-        assert board.all_legal_moves("b") == unordered(
-            ["e8-d8", "e8-f8", "c5-e7", "d7xe6", "f7xe6"]
-        )
+        assert board.all_legal_moves("b") == unordered(["e8-d8", "e8-f8", "c5-e7", "d7xe6", "f7xe6"])
 
 
 def test_castling_moves():
@@ -471,34 +460,22 @@ def test_castling_moves():
     board.set_fen("r3k2r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R3K2R b KQkq - 3 2")
     with check:
         board.make_move("O-O", "b")
-        assert (
-            board.get_fen()
-            == "r4rk1/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R3K2R w KQ - 4 3"
-        )
+        assert board.get_fen() == "r4rk1/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R3K2R w KQ - 4 3"
 
     board.set_fen("r3k2r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R3K2R b KQkq - 3 2")
     with check:
         board.make_move("O-O-O", "b")
-        assert (
-            board.get_fen()
-            == "2kr3r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R3K2R w KQ - 4 3"
-        )
+        assert board.get_fen() == "2kr3r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R3K2R w KQ - 4 3"
 
     board.set_fen("r3k2r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R3K2R w KQkq - 3 2")
     with check:
         board.make_move("O-O-O", "w")
-        assert (
-            board.get_fen()
-            == "r3k2r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/2KR3R b kq - 4 2"
-        )
+        assert board.get_fen() == "r3k2r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/2KR3R b kq - 4 2"
 
     board.set_fen("r3k2r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R3K2R w KQkq - 3 2")
     with check:
         board.make_move("O-O", "w")
-        assert (
-            board.get_fen()
-            == "r3k2r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R4RK1 b kq - 4 2"
-        )
+        assert board.get_fen() == "r3k2r/p1ppqpb1/bn2Qnp1/3PN3/1p2P3/2N5/PPPBBPPP/R4RK1 b kq - 4 2"
 
 
 def test_promotion():
@@ -538,9 +515,33 @@ def test_promotion():
         assert board.get_fen() == "1bQ1k3/8/8/8/8/8/8/4K3 b - - 0 1"
         assert board.is_check("b") is True
 
+    board.set_fen("1b2k3/2P5/8/8/8/8/8/4K3 w - - 0 1")
+    with check:
+        board.make_move("c7xb8=Q")
+        assert board.get_fen() == "1Q2k3/8/8/8/8/8/8/4K3 b - - 0 1"
+        assert board.is_check("b") is True
+
+    board.set_fen("rnb1kb1r/pP2pppp/5n2/1q6/8/8/PPPP1PPP/RNBQK1NR w KQkq - 0 6")
+    with check:
+        board.make_move("b7xa8=Q")
+        assert board.get_fen() == "Qnb1kb1r/p3pppp/5n2/1q6/8/8/PPPP1PPP/RNBQK1NR b KQkq - 0 6"
+
+    board.set_fen("rnb1kb1r/pP2pppp/5n2/1q6/8/8/PPPP1PPP/RNBQK1NR w KQkq - 0 6")
+    with check:
+        board.make_move("b7xc8=Q")
+        assert board.get_fen() == "rnQ1kb1r/p3pppp/5n2/1q6/8/8/PPPP1PPP/RNBQK1NR b KQkq - 0 6"
+        assert board.is_checkmate("b") is True
+
 
 def test_checkmate():
     board.set_fen("1bQ1k3/7R/8/8/8/8/8/4K3 b - - 0 1")
+    with check:
+        assert board.is_checkmate("b") is True
+        assert board.is_checkmate("w") is False
+        assert board.is_stalemate("b") is False
+        assert board.is_stalemate("w") is False
+
+    board.set_fen("rnQ1kb1r/p3pppp/5n2/1q6/8/8/PPPP1PPP/RNBQK1NR b KQkq - 0 6")
     with check:
         assert board.is_checkmate("b") is True
         assert board.is_checkmate("w") is False
@@ -597,32 +598,17 @@ def test_pgn():
         board.make_move("e5xf6e.p.")
         assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6"
         board.make_move("g7xf6")
-        assert (
-            board.get_pgn(test=True).strip()
-            == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6"
-        )
+        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6"
     with check:
         board.make_move("g1-f3")
-        assert (
-            board.get_pgn(test=True).strip()
-            == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3"
-        )
+        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3"
         board.make_move("g8-h6")
-        assert (
-            board.get_pgn(test=True).strip()
-            == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6"
-        )
+        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6"
     with check:
         board.make_move("f1-d3")
-        assert (
-            board.get_pgn(test=True).strip()
-            == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6 5. f1d3"
-        )
+        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6 5. f1d3"
         board.make_move("f8-g7")
-        assert (
-            board.get_pgn(test=True).strip()
-            == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6 5. f1d3 f8g7"
-        )
+        assert board.get_pgn(test=True).strip() == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6 5. f1d3 f8g7"
     with check:
         board.make_move("O-O")
         assert (
@@ -634,3 +620,35 @@ def test_pgn():
             board.get_pgn(test=True).strip()
             == "1. e2e4 d7d5 2. e4e5 f7f5 3. e5xf6 g7xf6 4. g1f3 g8h6 5. f1d3 f8g7 6. O-O O-O"
         )
+
+
+def test_can_promote():
+    board.set_fen("rnb1kb1r/pP2pppp/5n2/1q6/8/8/PPPP1PPP/RNBQK1NR w KQkq - 0 6")
+    with check:
+        assert board.can_promote("b7") is True
+
+    board.set_fen("1n2kb1r/pP2pppp/5n2/1q6/8/8/PPPP1PPP/RNBQK1NR w KQk - 0 6")
+    with check:
+        assert board.can_promote("b2") is False
+
+    board.set_fen("1nb1kb1r/pP2pppp/5n2/1q6/8/8/PPPP1PPP/RNBQK1NR w KQkq - 0 6")
+    with check:
+        assert board.can_promote("b7") is True
+
+    board.set_fen("rn2kb1r/pP2pppp/5n2/1q6/8/8/PPPP1PPP/RNBQK1NR w KQkq - 0 6")
+    with check:
+        assert board.can_promote("b7") is True
+
+    board.set_fen("rnbqkbnr/pppp1ppp/8/8/8/1PK5/P1P1pPPP/RNBQ1BNR b kq - 0 5")
+    with check:
+        assert board.can_promote("e2") is True
+
+    board.set_fen("rnbqkbnr/pppp1ppp/8/8/6Q1/1P6/P1P1pPPP/RNB1KBNR b kq - 0 5")
+    with check:
+        assert board.can_promote("e2") is True
+
+    board.set_fen("rnbqkbnr/pppp1ppp/8/8/6Q1/1P6/P1P1pPPP/RNB1K1NR b kq - 0 5")
+    with check:
+        assert board.can_promote("e2") is False
+        assert board.can_promote("b3") is False
+        assert board.can_promote("c7") is False

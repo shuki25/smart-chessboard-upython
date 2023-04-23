@@ -152,9 +152,7 @@ def validate_notation(chess_move: str) -> bool:
         elif match.group(2) == "x" and match.group(4):
             if match.group(1) and match.group(3):
                 return True
-        elif (
-            match.group(2) == "" or match.group(2) == "-" or match.group(2) == "x"
-        ) and not match.group(4):
+        elif (match.group(2) == "" or match.group(2) == "-" or match.group(2) == "x") and not match.group(4):
             if match.group(1) and match.group(3):
                 return True
         elif match.group(1) and not match.group(2) and match.group(3):
@@ -206,9 +204,7 @@ def parse_move_notation(chess_move: str) -> tuple:
         elif match.group(2) == "x" and match.group(4):
             if match.group(1) and match.group(3):
                 valid_move = True
-        elif (
-            match.group(2) == "" or match.group(2) == "-" or match.group(2) == "x"
-        ) and not match.group(4):
+        elif (match.group(2) == "" or match.group(2) == "-" or match.group(2) == "x") and not match.group(4):
             if match.group(1) and match.group(3):
                 valid_move = True
         elif match.group(1) and not match.group(2) and match.group(3):
@@ -267,9 +263,7 @@ def check_boundary(index: int, rank: int) -> bool:
     """
     is_in_bounds = 0 <= index < 64 and index // 8 == rank
     debug(
-        "boundary check: index = {}, rank = {}, in bounds = {}".format(
-            index, rank, is_in_bounds
-        ),
+        "boundary check: index = {}, rank = {}, in bounds = {}".format(index, rank, is_in_bounds),
         2,
     )
     return 0 <= index < 64 and index // 8 == rank
@@ -576,9 +570,7 @@ class Chess:
         :return: True if the piece at the given index is an enemy piece, and
             False otherwise including if the square is empty
         """
-        return (
-            self.board[index].islower() if color == "w" else self.board[index].isupper()
-        )
+        return self.board[index].islower() if color == "w" else self.board[index].isupper()
 
     def is_friendly(self, index: int, color: str):
         """
@@ -591,9 +583,7 @@ class Chess:
         :return: True if the piece at the given index is a friendly piece, and
             False otherwise
         """
-        return (
-            self.board[index].isupper() if color == "w" else self.board[index].islower()
-        )
+        return self.board[index].isupper() if color == "w" else self.board[index].islower()
 
     def update_turn(self, move: str, promoted: bool = False, enpassant: bool = False):
         """
@@ -654,9 +644,7 @@ class Chess:
                 from_square = algebraic_to_board_index(move[0:2])
                 to_square = algebraic_to_board_index(move[3:5])
                 if abs(from_square - to_square) == 16:
-                    self.enpassant = board_index_to_algebraic(
-                        int((from_square + to_square) / 2)
-                    )
+                    self.enpassant = board_index_to_algebraic(int((from_square + to_square) / 2))
                 else:
                     self.enpassant = "-"
             else:
@@ -734,6 +722,46 @@ class Chess:
             return True
         elif side == "w" and match.group(3) in "a8b8c8d8e8f8g8h8":
             return True
+        return False
+
+    def can_promote(self, origin_square: str):
+        """
+        Return True if a pawn can promote, and False otherwise.
+
+        :param origin_square: the origin square of the pawn
+
+        :return: True if a pawn can promote, and False otherwise
+        """
+        index = algebraic_to_board_index(origin_square)
+        piece = self.board[index]
+
+        side = "w" if piece.isupper() else "b"
+        if piece not in "Pp":
+            return False
+        if side == "b" and origin_square in "a2b2c2d2e2f2g2h2":
+            square_a = index - 7
+            square_b = index - 9
+            square_c = index - 8
+            if check_boundary(square_a, 0) and self.board[square_a] != " ":
+                if self.is_enemy(square_a, "b"):
+                    return True
+            elif check_boundary(square_b, 0) and self.board[square_b] != " ":
+                if self.is_enemy(square_b, "b"):
+                    return True
+            elif check_boundary(square_c, 0) and self.board[square_c] == " ":
+                return True
+        elif side == "w" and origin_square in "a7b7c7d7e7f7g7h7":
+            square_a = index + 7
+            square_b = index + 9
+            square_c = index + 8
+            if check_boundary(square_a, 7) and self.board[square_a] != " ":
+                if self.is_enemy(square_a, "w"):
+                    return True
+            elif check_boundary(square_b, 7) and self.board[square_b] != " ":
+                if self.is_enemy(square_b, "w"):
+                    return True
+            elif check_boundary(square_c, 7) and self.board[square_c] == " ":
+                return True
         return False
 
     def make_test_move(self, board: list, move: str, side: str = "w"):
@@ -847,9 +875,7 @@ class Chess:
             return False
 
         board[from_square] = " "
-        board[to_square] = (
-            match.group(4)[1].upper() if side == "w" else match.group(4)[1].lower()
-        )
+        board[to_square] = match.group(4)[1].upper() if side == "w" else match.group(4)[1].lower()
 
     def make_move(self, move: str, side: str = None):
         """
@@ -870,9 +896,7 @@ class Chess:
         if not validate_notation(move):
             return False
 
-        move_from, move_to, capture, promotion, enpassant, castle = parse_move_notation(
-            move
-        )
+        move_from, move_to, capture, promotion, enpassant, castle = parse_move_notation(move)
         if castle:
             move_formatted = "O-O" if castle == "K" else "O-O-O"
         else:
@@ -1012,11 +1036,7 @@ class Chess:
             else:
                 if "q" not in self.castling:
                     return False
-                if (
-                    self.board[57] != " "
-                    or self.board[58] != " "
-                    or self.board[59] != " "
-                ):
+                if self.board[57] != " " or self.board[58] != " " or self.board[59] != " ":
                     return False
                 if (
                     self.is_square_attacked(58, side=side)
@@ -1137,106 +1157,66 @@ class Chess:
                     moves.append(move_notation(index, index + 8))
                 else:
                     for p in PROMOTED_PIECES:
-                        moves.append(
-                            move_notation(index, index + 8, promotion=p.upper())
-                        )
+                        moves.append(move_notation(index, index + 8, promotion=p.upper()))
                 if index < 16 and self.board[index + 16] == " ":
                     moves.append(move_notation(index, index + 16))
-            if (
-                check_boundary(index + 9, (index // 8 + 1))
-                and self.board[index + 9].islower()
-            ):
+            if check_boundary(index + 9, (index // 8 + 1)) and self.board[index + 9].islower():
                 if (index + 9) // 8 < 7:
                     moves.append(move_notation(index, index + 9, capture=True))
                 else:
                     for p in PROMOTED_PIECES:
-                        moves.append(
-                            move_notation(
-                                index, index + 9, promotion=p.upper(), capture=True
-                            )
-                        )
-            if (
-                check_boundary(index + 7, (index // 8 + 1))
-                and self.board[index + 7].islower()
-            ):
+                        moves.append(move_notation(index, index + 9, promotion=p.upper(), capture=True))
+            if check_boundary(index + 7, (index // 8 + 1)) and self.board[index + 7].islower():
                 if (index + 7) // 8 < 7:
                     moves.append(move_notation(index, index + 7, capture=True))
                 else:
                     for p in PROMOTED_PIECES:
-                        moves.append(
-                            move_notation(
-                                index, index + 7, promotion=p.upper(), capture=True
-                            )
-                        )
+                        moves.append(move_notation(index, index + 7, promotion=p.upper(), capture=True))
             if (
                 index % 8 > 0
                 and self.board[index - 1] == "p"
                 and self.enpassant == chr(ord("a") + (index % 8) - 1) + "6"
             ):
-                moves.append(
-                    move_notation(index, index + 7, capture=True, enpassant=True)
-                )
+                moves.append(move_notation(index, index + 7, capture=True, enpassant=True))
             if (
                 index % 8 < 7
                 and self.board[index + 1] == "p"
                 and self.enpassant == chr(ord("a") + (index % 8) + 1) + "6"
             ):
-                moves.append(
-                    move_notation(index, index + 9, capture=True, enpassant=True)
-                )
+                moves.append(move_notation(index, index + 9, capture=True, enpassant=True))
         else:
             if self.board[index - 8] == " ":
                 if (index - 8) // 8 > 0:
                     moves.append(move_notation(index, index - 8))
                 else:
                     for p in PROMOTED_PIECES:
-                        moves.append(
-                            move_notation(index, index - 8, promotion=p.lower())
-                        )
+                        moves.append(move_notation(index, index - 8, promotion=p.lower()))
                 if index > 47 and self.board[index - 16] == " ":
                     moves.append(move_notation(index, index - 16))
-            if (
-                check_boundary(index - 7, (index // 8) - 1)
-                and self.board[index - 7].isupper()
-            ):
+            if check_boundary(index - 7, (index // 8) - 1) and self.board[index - 7].isupper():
                 if (index - 7) // 8 > 0:
                     moves.append(move_notation(index, index - 7, capture=True))
                 else:
                     for p in PROMOTED_PIECES:
-                        moves.append(
-                            move_notation(
-                                index, index - 7, promotion=p.lower(), capture=True
-                            )
-                        )
-            if (
-                check_boundary(index - 9, (index // 8) - 1)
-                and self.board[index - 9].isupper()
-            ):
+                        moves.append(move_notation(index, index - 7, promotion=p.lower(), capture=True))
+            if check_boundary(index - 9, (index // 8) - 1) and self.board[index - 9].isupper():
                 if (index - 9) // 8 > 0:
                     moves.append(move_notation(index, index - 9, capture=True))
                 else:
                     for p in PROMOTED_PIECES:
-                        moves.append(
-                            move_notation(
-                                index, index - 9, promotion=p.lower(), capture=True
-                            )
-                        )
+                        moves.append(move_notation(index, index - 9, promotion=p.lower(), capture=True))
             if (
                 index % 8 > 0
                 and self.board[index - 1] == "P"
                 and self.enpassant == chr(ord("a") + (index % 8) - 1) + "3"
             ):
-                moves.append(
-                    move_notation(index, index - 9, capture=True, enpassant=True)
-                )
+                moves.append(move_notation(index, index - 9, capture=True, enpassant=True))
             if (
                 index % 8 < 7
                 and self.board[index + 1] == "P"
                 and self.enpassant == chr(ord("a") + (index % 8) + 1) + "3"
             ):
-                moves.append(
-                    move_notation(index, index - 7, capture=True, enpassant=True)
-                )
+                moves.append(move_notation(index, index - 7, capture=True, enpassant=True))
         return moves
 
     def generate_knight_moves(self, index: int):
@@ -1251,151 +1231,41 @@ class Chess:
         side = "w" if self.board[index].isupper() else "b"
 
         if index % 8 > 0:
-            if index > 15 and (
-                self.board[index - 15] == " " or self.is_enemy(index - 15, side)
-            ):
-                moves.append(
-                    move_notation(
-                        index, index - 15, capture=self.is_enemy(index - 15, side)
-                    )
-                )
-            if (
-                index % 8 < 6
-                and index > 7
-                and (self.board[index - 6] == " " or self.is_enemy(index - 6, side))
-            ):
-                moves.append(
-                    move_notation(
-                        index, index - 6, capture=self.is_enemy(index - 6, side)
-                    )
-                )
-            if (
-                index % 8 < 7
-                and index < 48
-                and (self.board[index + 17] == " " or self.is_enemy(index + 17, side))
-            ):
-                moves.append(
-                    move_notation(
-                        index, index + 17, capture=self.is_enemy(index + 17, side)
-                    )
-                )
-            if (
-                index % 8 < 6
-                and index < 56
-                and (self.board[index + 10] == " " or self.is_enemy(index + 10, side))
-            ):
-                moves.append(
-                    move_notation(
-                        index, index + 10, capture=self.is_enemy(index + 10, side)
-                    )
-                )
+            if index > 15 and (self.board[index - 15] == " " or self.is_enemy(index - 15, side)):
+                moves.append(move_notation(index, index - 15, capture=self.is_enemy(index - 15, side)))
+            if index % 8 < 6 and index > 7 and (self.board[index - 6] == " " or self.is_enemy(index - 6, side)):
+                moves.append(move_notation(index, index - 6, capture=self.is_enemy(index - 6, side)))
+            if index % 8 < 7 and index < 48 and (self.board[index + 17] == " " or self.is_enemy(index + 17, side)):
+                moves.append(move_notation(index, index + 17, capture=self.is_enemy(index + 17, side)))
+            if index % 8 < 6 and index < 56 and (self.board[index + 10] == " " or self.is_enemy(index + 10, side)):
+                moves.append(move_notation(index, index + 10, capture=self.is_enemy(index + 10, side)))
         if index % 8 < 7:
-            if (
-                index % 8 > 0
-                and index > 16
-                and (self.board[index - 17] == " " or self.is_enemy(index - 17, side))
-            ):
-                moves.append(
-                    move_notation(
-                        index, index - 17, capture=self.is_enemy(index - 17, side)
-                    )
-                )
-            if (
-                index % 8 > 1
-                and index > 7
-                and (self.board[index - 10] == " " or self.is_enemy(index - 10, side))
-            ):
-                moves.append(
-                    move_notation(
-                        index, index - 10, capture=self.is_enemy(index - 10, side)
-                    )
-                )
-            if (
-                index % 8 > 0
-                and index < 48
-                and (self.board[index + 15] == " " or self.is_enemy(index + 15, side))
-            ):
-                moves.append(
-                    move_notation(
-                        index, index + 15, capture=self.is_enemy(index + 15, side)
-                    )
-                )
-            if (
-                index % 8 > 1
-                and index < 56
-                and (self.board[index + 6] == " " or self.is_enemy(index + 6, side))
-            ):
-                moves.append(
-                    move_notation(
-                        index, index + 6, capture=self.is_enemy(index + 6, side)
-                    )
-                )
+            if index % 8 > 0 and index > 16 and (self.board[index - 17] == " " or self.is_enemy(index - 17, side)):
+                moves.append(move_notation(index, index - 17, capture=self.is_enemy(index - 17, side)))
+            if index % 8 > 1 and index > 7 and (self.board[index - 10] == " " or self.is_enemy(index - 10, side)):
+                moves.append(move_notation(index, index - 10, capture=self.is_enemy(index - 10, side)))
+            if index % 8 > 0 and index < 48 and (self.board[index + 15] == " " or self.is_enemy(index + 15, side)):
+                moves.append(move_notation(index, index + 15, capture=self.is_enemy(index + 15, side)))
+            if index % 8 > 1 and index < 56 and (self.board[index + 6] == " " or self.is_enemy(index + 6, side)):
+                moves.append(move_notation(index, index + 6, capture=self.is_enemy(index + 6, side)))
         if index % 8 == 0:
-            if index > 15 and (
-                self.board[index - 15] == " " or self.is_enemy(index - 15, side)
-            ):
-                moves.append(
-                    move_notation(
-                        index, index - 15, capture=self.is_enemy(index - 15, side)
-                    )
-                )
-            if index > 7 and (
-                self.board[index - 6] == " " or self.is_enemy(index - 6, side)
-            ):
-                moves.append(
-                    move_notation(
-                        index, index - 6, capture=self.is_enemy(index - 6, side)
-                    )
-                )
-            if index < 48 and (
-                self.board[index + 17] == " " or self.is_enemy(index + 17, side)
-            ):
-                moves.append(
-                    move_notation(
-                        index, index + 17, capture=self.is_enemy(index + 17, side)
-                    )
-                )
-            if index < 56 and (
-                self.board[index + 10] == " " or self.is_enemy(index + 10, side)
-            ):
-                moves.append(
-                    move_notation(
-                        index, index + 10, capture=self.is_enemy(index + 10, side)
-                    )
-                )
+            if index > 15 and (self.board[index - 15] == " " or self.is_enemy(index - 15, side)):
+                moves.append(move_notation(index, index - 15, capture=self.is_enemy(index - 15, side)))
+            if index > 7 and (self.board[index - 6] == " " or self.is_enemy(index - 6, side)):
+                moves.append(move_notation(index, index - 6, capture=self.is_enemy(index - 6, side)))
+            if index < 48 and (self.board[index + 17] == " " or self.is_enemy(index + 17, side)):
+                moves.append(move_notation(index, index + 17, capture=self.is_enemy(index + 17, side)))
+            if index < 56 and (self.board[index + 10] == " " or self.is_enemy(index + 10, side)):
+                moves.append(move_notation(index, index + 10, capture=self.is_enemy(index + 10, side)))
         if index % 8 == 7:
-            if index > 16 and (
-                self.board[index - 17] == " " or self.is_enemy(index - 17, side)
-            ):
-                moves.append(
-                    move_notation(
-                        index, index - 17, capture=self.is_enemy(index - 17, side)
-                    )
-                )
-            if index > 7 and (
-                self.board[index - 10] == " " or self.is_enemy(index - 10, side)
-            ):
-                moves.append(
-                    move_notation(
-                        index, index - 10, capture=self.is_enemy(index - 10, side)
-                    )
-                )
-            if index < 48 and (
-                self.board[index + 15] == " " or self.is_enemy(index + 15, side)
-            ):
-                moves.append(
-                    move_notation(
-                        index, index + 15, capture=self.is_enemy(index + 15, side)
-                    )
-                )
-            if index < 56 and (
-                self.board[index + 6] == " " or self.is_enemy(index + 6, side)
-            ):
-                moves.append(
-                    move_notation(
-                        index, index + 6, capture=self.is_enemy(index + 6, side)
-                    )
-                )
+            if index > 16 and (self.board[index - 17] == " " or self.is_enemy(index - 17, side)):
+                moves.append(move_notation(index, index - 17, capture=self.is_enemy(index - 17, side)))
+            if index > 7 and (self.board[index - 10] == " " or self.is_enemy(index - 10, side)):
+                moves.append(move_notation(index, index - 10, capture=self.is_enemy(index - 10, side)))
+            if index < 48 and (self.board[index + 15] == " " or self.is_enemy(index + 15, side)):
+                moves.append(move_notation(index, index + 15, capture=self.is_enemy(index + 15, side)))
+            if index < 56 and (self.board[index + 6] == " " or self.is_enemy(index + 6, side)):
+                moves.append(move_notation(index, index + 6, capture=self.is_enemy(index + 6, side)))
         return moves
 
     def generate_bishop_moves(self, index: int):
@@ -1538,76 +1408,36 @@ class Chess:
         side = "w" if self.board[index].isupper() else "b"
 
         # up
-        if index < 56 and (
-            self.board[index + 8] == " " or self.is_enemy(index + 8, side)
-        ):
-            moves.append(
-                move_notation(index, index + 8, capture=self.is_enemy(index + 8, side))
-            )
+        if index < 56 and (self.board[index + 8] == " " or self.is_enemy(index + 8, side)):
+            moves.append(move_notation(index, index + 8, capture=self.is_enemy(index + 8, side)))
 
         # down
-        if index > 7 and (
-            self.board[index - 8] == " " or self.is_enemy(index - 8, side)
-        ):
-            moves.append(
-                move_notation(index, index - 8, capture=self.is_enemy(index - 8, side))
-            )
+        if index > 7 and (self.board[index - 8] == " " or self.is_enemy(index - 8, side)):
+            moves.append(move_notation(index, index - 8, capture=self.is_enemy(index - 8, side)))
 
         # right
-        if (index + 1) % 8 != 0 and (
-            self.board[index + 1] == " " or self.is_enemy(index + 1, side)
-        ):
-            moves.append(
-                move_notation(index, index + 1, capture=self.is_enemy(index + 1, side))
-            )
+        if (index + 1) % 8 != 0 and (self.board[index + 1] == " " or self.is_enemy(index + 1, side)):
+            moves.append(move_notation(index, index + 1, capture=self.is_enemy(index + 1, side)))
 
         # left
-        if index % 8 != 0 and (
-            self.board[index - 1] == " " or self.is_enemy(index - 1, side)
-        ):
-            moves.append(
-                move_notation(index, index - 1, capture=self.is_enemy(index - 1, side))
-            )
+        if index % 8 != 0 and (self.board[index - 1] == " " or self.is_enemy(index - 1, side)):
+            moves.append(move_notation(index, index - 1, capture=self.is_enemy(index - 1, side)))
 
         # up right
-        if (
-            (index + 1) % 8 != 0
-            and index < 56
-            and (self.board[index + 9] == " " or self.is_enemy(index + 9, side))
-        ):
-            moves.append(
-                move_notation(index, index + 9, capture=self.is_enemy(index + 9, side))
-            )
+        if (index + 1) % 8 != 0 and index < 56 and (self.board[index + 9] == " " or self.is_enemy(index + 9, side)):
+            moves.append(move_notation(index, index + 9, capture=self.is_enemy(index + 9, side)))
 
         # up left
-        if (
-            index % 8 != 0
-            and index < 56
-            and (self.board[index + 7] == " " or self.is_enemy(index + 7, side))
-        ):
-            moves.append(
-                move_notation(index, index + 7, capture=self.is_enemy(index + 7, side))
-            )
+        if index % 8 != 0 and index < 56 and (self.board[index + 7] == " " or self.is_enemy(index + 7, side)):
+            moves.append(move_notation(index, index + 7, capture=self.is_enemy(index + 7, side)))
 
         # down right
-        if (
-            (index + 1) % 8 != 0
-            and index > 7
-            and (self.board[index - 7] == " " or self.is_enemy(index - 7, side))
-        ):
-            moves.append(
-                move_notation(index, index - 7, capture=self.is_enemy(index - 7, side))
-            )
+        if (index + 1) % 8 != 0 and index > 7 and (self.board[index - 7] == " " or self.is_enemy(index - 7, side)):
+            moves.append(move_notation(index, index - 7, capture=self.is_enemy(index - 7, side)))
 
         # down left
-        if (
-            index % 8 != 0
-            and index > 7
-            and (self.board[index - 9] == " " or self.is_enemy(index - 9, side))
-        ):
-            moves.append(
-                move_notation(index, index - 9, capture=self.is_enemy(index - 9, side))
-            )
+        if index % 8 != 0 and index > 7 and (self.board[index - 9] == " " or self.is_enemy(index - 9, side)):
+            moves.append(move_notation(index, index - 9, capture=self.is_enemy(index - 9, side)))
 
         # king side castle
         if side == "w":
@@ -1672,9 +1502,7 @@ class Chess:
         for j, i in enumerate([-17, -15, -10, -6, 6, 10, 15, 17]):
             rank = rank_orign + rank_idx[j]
             if check_boundary(index + i, rank):
-                if 0 <= index + i < 64 and board[index + i] == (
-                    "n" if side == "w" else "N"
-                ):
+                if 0 <= index + i < 64 and board[index + i] == ("n" if side == "w" else "N"):
                     debug("knight attack: {}".format(index + i))
                     return True
 
@@ -1689,9 +1517,9 @@ class Chess:
                     rank += 1
                 if 0 <= index + i * j < 64 and check_boundary(index + i * j, rank):
                     debug("checking bishop/queen attack: {}".format(index + i * j), 2)
-                    if board[index + i * j] == ("b" if side == "w" else "B") or board[
-                        index + i * j
-                    ] == ("q" if side == "w" else "Q"):
+                    if board[index + i * j] == ("b" if side == "w" else "B") or board[index + i * j] == (
+                        "q" if side == "w" else "Q"
+                    ):
                         debug("bishop/queen attack: {}".format(index + i * j))
                         return True
                     if board[index + i * j] != " ":
@@ -1711,9 +1539,9 @@ class Chess:
                     rank += 1
                 if 0 <= index + i * j < 64 and check_boundary(index + i * j, rank):
                     debug("checking rook/queen attack: {}".format(index + i * j), 2)
-                    if board[index + i * j] == ("r" if side == "w" else "R") or board[
-                        index + i * j
-                    ] == ("q" if side == "w" else "Q"):
+                    if board[index + i * j] == ("r" if side == "w" else "R") or board[index + i * j] == (
+                        "q" if side == "w" else "Q"
+                    ):
                         debug("rook/queen attack: {}".format(index + i * j))
                         return True
                     if board[index + i * j] != " ":
@@ -1725,9 +1553,7 @@ class Chess:
         # check for kings
         debug("checking for king attacks", 2)
         for i in [-9, -8, -7, -1, 1, 7, 8, 9]:
-            if 0 <= index + i < 64 and board[index + i] == (
-                "k" if side == "w" else "K"
-            ):
+            if 0 <= index + i < 64 and board[index + i] == ("k" if side == "w" else "K"):
                 debug("king attack: {}".format(index + i))
                 return True
 
